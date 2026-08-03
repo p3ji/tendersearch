@@ -2,7 +2,7 @@ import csv
 from canadabuys.notice import Notice
 from matching.lowbarrier import (
     classify, KIND_NONE, KIND_SUPPLY_ARRANGEMENT, KIND_STANDING_OFFER,
-    KIND_ACAN, KIND_SUBCONTRACT,
+    KIND_ACAN, KIND_SUBCONTRACT, CONFIDENCE_HIGH, CONFIDENCE_LOW,
 )
 
 TS = "2026-08-03T12:00:00+00:00"
@@ -84,3 +84,39 @@ def test_notice_type_wins_over_description_heuristic():
         "tenderDescription-descriptionAppelOffres-eng": "subcontracting opportunities exist",
     }))
     assert r.kind == KIND_STANDING_OFFER, "explicit notice type beats a description keyword"
+
+
+def test_structured_signals_are_high_confidence():
+    # Structured noticeType and procurementMethod signals are high-confidence.
+    r1 = classify(notice(**{"noticeType-avisType-eng": "Request for Supply Arrangement"}))
+    assert r1.confidence == CONFIDENCE_HIGH
+
+    r2 = classify(notice(**{"noticeType-avisType-eng": "Request for Standing Offer"}))
+    assert r2.confidence == CONFIDENCE_HIGH
+
+    r3 = classify(notice(**{"noticeType-avisType-eng": "Advance Contract Award Notice"}))
+    assert r3.confidence == CONFIDENCE_HIGH
+
+    # procurementMethod fallback is also high-confidence.
+    r4 = classify(notice(**{
+        "noticeType-avisType-eng": "",
+        "procurementMethod-methodeApprovisionnement-eng": "Advance contract award notice",
+    }))
+    assert r4.confidence == CONFIDENCE_HIGH
+
+
+def test_description_derived_subcontract_is_low_confidence():
+    # Description-keyword heuristic is low-confidence.
+    r = classify(notice(**{
+        "tenderDescription-descriptionAppelOffres-eng":
+            "Prime contractors are encouraged to identify subcontracting opportunities.",
+    }))
+    assert r.confidence == CONFIDENCE_LOW
+    assert r.kind == KIND_SUBCONTRACT
+
+
+def test_kind_none_result_has_a_confidence_value():
+    # Non-low-barrier results still carry a valid confidence value.
+    r = classify(notice())
+    assert r.kind == KIND_NONE
+    assert r.confidence == CONFIDENCE_HIGH
