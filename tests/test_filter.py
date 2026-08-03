@@ -103,6 +103,21 @@ def test_rejects_a_closed_notice():
     assert r.reason == REASON_CLOSED
 
 
+def test_ignore_status_allows_closed_notices_through():
+    cancelled = notice(**{"tenderStatus-appelOffresStatut-eng": "Cancelled"})
+
+    default_result = filter_notice(cancelled, [LINE], REGIONS, CONFIG)
+    assert not default_result.passed
+    assert default_result.reason == REASON_CLOSED
+
+    ignoring_status_config = FilterConfig(
+        min_turnaround_days=5, now=NOW, ignore_status=True,
+    )
+    ignoring_result = filter_notice(cancelled, [LINE], REGIONS, ignoring_status_config)
+    assert ignoring_result.passed
+    assert ignoring_result.reason == REASON_PASS
+
+
 def test_rejects_a_notice_closing_inside_the_turnaround_window():
     r = filter_notice(
         notice(**{"tenderClosingDate-appelOffresDateCloture": "2026-08-05T14:00:00"}),

@@ -34,11 +34,15 @@ def main(argv: list[str]) -> int:
     notices = parse_csv_bytes(archive.read_bytes(), "archive", NOW_ISO)
     print(f"archive: {archive.name}  notices: {len(notices)}")
 
-    # Pass 2 — volume. Date and status rules are meaningless on historical data,
-    # so use a far-past `now` to neutralize them and isolate code/keyword reach.
+    # Pass 2 — volume. A far-past `now` neutralizes the closing-date/turnaround
+    # gate. Status is a separate, independent gate: a real fiscal-year archive
+    # is overwhelmingly Closed/Awarded/Cancelled, so honouring notice.status
+    # would reject nearly everything and make this analysis meaningless.
+    # ignore_status=True deliberately skips that gate for archive analysis.
     config = FilterConfig(
         min_turnaround_days=cfg.get("min_turnaround_days", 5),
         now=datetime.datetime(2000, 1, 1, tzinfo=datetime.timezone.utc),
+        ignore_status=True,
     )
     results = filter_all(notices, profiles, [], config)
     survivors = [n for n in notices if results[n.reference].passed]

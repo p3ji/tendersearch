@@ -61,7 +61,11 @@ def cmd_filter(args) -> int:
 
     cfg_data = {}
     if pathlib.Path(args.config).exists():
-        cfg_data = yaml.safe_load(pathlib.Path(args.config).read_text(encoding="utf-8")) or {}
+        try:
+            cfg_data = yaml.safe_load(pathlib.Path(args.config).read_text(encoding="utf-8")) or {}
+        except yaml.YAMLError as exc:
+            print(f"ERROR: could not parse config file {args.config}: {exc}", file=sys.stderr)
+            return 1
     config = FilterConfig(
         min_turnaround_days=cfg_data.get("min_turnaround_days", 5),
         now=datetime.datetime.now(datetime.timezone.utc),

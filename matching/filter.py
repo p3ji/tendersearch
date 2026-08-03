@@ -31,6 +31,7 @@ class FilterConfig:
     now: datetime.datetime = dataclasses.field(
         default_factory=lambda: datetime.datetime.now(datetime.timezone.utc)
     )
+    ignore_status: bool = False
 
 
 @dataclasses.dataclass
@@ -63,7 +64,7 @@ def filter_notice(
     regions: list[str],
     config: FilterConfig,
 ) -> FilterResult:
-    if notice.status and not notice.is_open():
+    if not config.ignore_status and notice.status and not notice.is_open():
         return FilterResult(False, REASON_CLOSED)
 
     if notice.closing is not None:
