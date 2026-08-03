@@ -45,6 +45,8 @@ class FilterResult:
 def _region_ok(notice: Notice, regions: list[str]) -> bool:
     if not notice.regions_delivery:
         return True  # not stated -> do not hide it
+    if not regions:
+        return True  # profile-side regions unspecified -> do not hide it
     served = {r.strip().lower() for r in regions}
     if served & NATIONAL_REGIONS:
         return True

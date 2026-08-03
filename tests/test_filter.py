@@ -175,3 +175,13 @@ def test_empty_service_lines_rejects_everything_rather_than_crashing():
     r = filter_notice(notice(), [], REGIONS, CONFIG)
     assert not r.passed
     assert r.reason == REASON_NO_SIGNAL
+
+
+def test_empty_profile_regions_passes_rather_than_rejecting():
+    # Recall gate: an empty profile-side regions list must read as "unspecified",
+    # never as "serves nowhere". A YAML typo or half-filled profile that ends up
+    # with regions=[] must not silently and permanently drop every notice that
+    # states a region for that member. Do not "fix" this back to rejecting --
+    # matching/profile.py separately guards against regions=[] at load time.
+    r = filter_notice(notice(), [LINE], [], CONFIG)
+    assert r.passed

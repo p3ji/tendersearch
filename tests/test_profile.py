@@ -56,6 +56,14 @@ def test_service_line_with_no_keywords_and_no_codes_is_rejected(tmp_path):
         load_profile(write(tmp_path, bad))
 
 
+def test_empty_regions_list_is_rejected(tmp_path):
+    # An empty regions list is not a valid configuration -- it must fail loudly
+    # at load time rather than be silently reinterpreted at match time.
+    bad = {**MINIMAL, "regions": []}
+    with pytest.raises(ProfileError, match="regions"):
+        load_profile(write(tmp_path, bad))
+
+
 def test_load_profiles_skips_the_example_directory(tmp_path):
     write(tmp_path, MINIMAL)
     write(tmp_path, {**MINIMAL, "member_id": "_example"})

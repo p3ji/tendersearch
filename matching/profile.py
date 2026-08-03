@@ -78,6 +78,11 @@ def load_profile(path: pathlib.Path) -> Profile:
     if missing:
         raise ProfileError(f"{path}: missing required field(s): {', '.join(missing)}")
 
+    if not data["regions"]:
+        raise ProfileError(
+            f"{path}: 'regions' is present but empty, which is not a valid configuration"
+        )
+
     lines = []
     for raw in data["service_lines"]:
         line = ServiceLine(
