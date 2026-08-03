@@ -79,8 +79,7 @@ class NoticeStore:
         incoming.last_updated = now_iso
         incoming.needs_rematch = existing.needs_rematch or bool(changed)
         self.save(incoming)
-        action = "amended" if incoming.amendment != existing.amendment else "updated"
-        return UpsertResult(incoming.reference, action, bool(changed), changed)
+        return UpsertResult(incoming.reference, "amended", bool(changed), changed)
 
     def all(self) -> Iterator[Notice]:
         for path in sorted(self.root.glob("*/*.json")):

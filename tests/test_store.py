@@ -108,6 +108,20 @@ def test_amendment_changing_only_contact_does_not_force_rematch(store):
     assert result.needs_rematch is False, "a contact change does not invalidate a verdict"
 
 
+def test_same_amendment_with_changed_content_is_amended(store):
+    store.upsert(make(**{
+        "amendmentNumber-numeroModification": "000",
+        "tenderDescription-descriptionAppelOffres-eng": "original scope",
+    }), T0)
+    result = store.upsert(make(**{
+        "amendmentNumber-numeroModification": "000",
+        "tenderDescription-descriptionAppelOffres-eng": "corrected scope",
+    }), T1)
+    assert store.load(result_ref(store)).description == "corrected scope"
+    assert result.action == "amended"
+    assert result.needs_rematch is True
+
+
 def test_older_amendment_does_not_overwrite_newer(store):
     store.upsert(make(**{"amendmentNumber-numeroModification": "002"}), T0)
     result = store.upsert(make(**{"amendmentNumber-numeroModification": "001"}), T1)
