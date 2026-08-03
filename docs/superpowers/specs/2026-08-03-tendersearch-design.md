@@ -31,7 +31,12 @@ Recorded so they are not relitigated during implementation.
 | Profile privacy | `profiles/` and `teams/` git-ignored; committed `_example/` shows schema | They hold members' resumes and possibly client names. |
 | Spec location | `docs/superpowers/specs/` in-repo | User preference, chosen over the Projects-root convention of routing architecture rationale to the Brain note. |
 
-**Explicitly excluded from v1:** filled procurement forms, pricing tables, SACC clause handling, web dashboard, non-CanadaBuys sources (provincial portals, MERX), automated submission of anything.
+**Explicitly excluded from v1:** filled procurement forms, pricing tables, SACC clause handling
+(A2), web dashboard (A1), non-CanadaBuys sources (A3), award intelligence (A4), outcome-driven
+rubric learning (A5). Automated submission of anything is excluded permanently (A6).
+
+Each is specified in the **Appendix — Deferred functionality**, with the rationale for waiting and
+the trigger that should prompt building it.
 
 ## Architecture
 
@@ -289,3 +294,133 @@ remove drudgery afterwards.
 archive file and inspect what it would have flagged. This is cheap, uses no live quota, and is the
 only honest way to tune weights — my priors about what scores well are guesses until tested against
 notices that really existed.
+
+---
+
+# Appendix — Deferred functionality
+
+Each item below was considered and deliberately left out of v1. This appendix records what the
+thing is, what it would take, why it waits, and **the trigger that should make us build it**.
+Nothing here is a commitment; it exists so a later session can pick an item up cold and so we don't
+relitigate settled reasoning.
+
+Read the triggers as the operative part. "Later" without a trigger is how deferred work quietly
+becomes never-built work, or worse, gets built early because someone forgot why it waited.
+
+## A1 — Shared web dashboard
+
+**What.** A generated HTML view of the pipeline — current open matches by score, upcoming
+deadlines, bids in progress and their owners, win/loss history — so members can see the state of
+play without running Claude Code or having access to the repo.
+
+**Shape.** A `/dashboard` command renders `matches/*/verdicts.json`, `bids/`, and `outcomes.jsonl`
+into a single self-contained HTML file. No server, no build step, no external assets. Published
+either as a Claude Artifact or dropped into a static host. The daily schedule regenerates it after
+`/rank`.
+
+**Why v1 already accommodates it.** Verdicts and digests are written as structured JSON, not prose,
+specifically so a renderer can consume them. That constraint is honoured in v1 and costs nothing.
+Building the renderer later is additive — no data migration, no changes to matching.
+
+**Why deferred.** The digest is a markdown file that reads fine in a terminal or editor, and until
+several people are actively working bids there is nothing to coordinate. Building a dashboard for
+one user is decoration.
+
+**Privacy note that must be settled before building.** Profiles are git-ignored because they hold
+members' resumes and client names. A dashboard renders derived data that can leak the same
+information — a gap report naming who lacks a clearance is sensitive. Decide the audience and
+redaction rules *before* the first render, not after it is shared.
+
+**Trigger.** Two or more members are working bids concurrently, or someone asks "what's in the
+pipeline?" more than once.
+
+## A2 — Full submission package
+
+**What.** Beyond the v1 draft: filled procurement forms, structured pricing tables, and
+solicitation-specific compliance handling including SACC clause references.
+
+**Shape.** A form-template library keyed by solicitation type; a pricing model driven by member
+rate cards (a profile field v1 does not yet have); a compliance engine that maps a solicitation's
+cited clauses to required responses. `/apply --package` produces submission-ready artifacts.
+
+**Why deferred — the strongest deferral in this document.** Federal forms and SACC clauses are
+brittle and unforgiving, and a *wrong* clause reference is materially worse than no clause
+reference: it signals inexperience to an evaluator and can render a bid non-compliant. Generating
+this content confidently and incorrectly is the worst outcome the tool could produce. It also
+cannot be built credibly from documentation alone — you need to know which forms actually recur for
+your service lines, and that knowledge only comes from having submitted.
+
+**Precondition.** At least three completed real submissions, with the actual forms retained. Build
+the template library from those, not from guesses.
+
+**Trigger.** The same form has been filled by hand three times.
+
+**Scope guard.** Even when built, this generates artifacts for a human to review and submit.
+Automated submission to CanadaBuys is permanently out of scope — see A6.
+
+## A3 — Additional procurement sources
+
+**What.** Provincial and municipal portals (BC Bid, Biddingo, MERX, SEAO), and any buyer whose
+notices never reach CanadaBuys.
+
+**Shape.** One new skill per source under `.agents/skills/<source>-search/`, each normalizing into
+the *existing* notice schema. The matcher, digest, and `/apply` need no changes — this is precisely
+what the layered architecture buys. Sources without open-data feeds require HTML scraping and must
+honour each site's crawl policy; `aijobsearch`'s portal skills are the working pattern, including
+its convention of recording in `url-reference.md` what was tried and why it doesn't work.
+
+**Why deferred.** CanadaBuys alone produces more qualified notices than a small group can bid.
+Adding sources before the matcher is calibrated multiplies noise, not opportunity.
+
+**Trigger.** The daily digest is consistently thin — fewer than a couple of genuine matches a week
+after calibration — or a specific known buyer is confirmed to publish elsewhere.
+
+## A4 — Award and competitive intelligence
+
+**What.** Use historical award data to answer questions v1 cannot: who actually wins this
+organization's work, at what values, how many bidders typically compete, and whether an incumbent
+is entrenched. Feeds both bid/no-bid judgment and pricing.
+
+**Shape.** Ingest contract-award / proactive-disclosure data (the Open Government portal publishes
+contract history; **the exact dataset and its schema must be verified before designing against it**
+— do not assume it joins cleanly to tender notices, since award records and tender notices are
+maintained separately and may share no reliable key). Join what can be joined; where a join is
+impossible, match on organization and category as a weaker signal and label it as such in the
+output.
+
+**Why deferred.** High analytical value but entirely dependent on a data join that may not exist.
+Investigating it is a research task with an uncertain answer, and the tool is useful without it.
+
+**Trigger.** The group is regularly making close bid/no-bid calls where incumbency is the deciding
+unknown.
+
+## A5 — Learning from outcomes
+
+**What.** Close the loop: use `outcomes.jsonl` to automatically adjust rubric weights, so the
+matcher improves as real results accumulate.
+
+**Shape.** Periodic review comparing predicted scores against actual bid/no-bid decisions and
+results, surfacing systematic bias ("we consistently over-score notices where the mandatory is a
+certification we lack"). Output is a proposed rubric edit **for human approval** — never a silent
+weight change, because an opaque scorer that drifts is worse than a crude one you understand.
+
+**Why deferred.** Needs data. With fewer than roughly twenty recorded outcomes, any adjustment is
+overfitting to noise.
+
+**Why v1 accommodates it.** `outcomes.jsonl` is captured from day one specifically to make this
+possible later. Recording outcomes has standalone value — it becomes past-performance evidence,
+which is this group's binding constraint.
+
+**Trigger.** Twenty-plus recorded outcomes.
+
+## A6 — Permanently out of scope
+
+Not deferred. Excluded by intent, recorded so nobody proposes them as a natural next step.
+
+- **Automated submission of a bid.** The tool never submits anything to CanadaBuys or emails a
+  buyer. A human reviews and submits every time. An automated submission that is wrong is an
+  irreversible, reputationally costly error against a government buyer.
+- **Automated contact with contracting authorities.** Draft the question; a human sends it.
+- **Fabricated past performance or capability claims.** The matcher reports gaps honestly. A tool
+  that papers over a gap to raise a score is actively harmful — misrepresentation in a federal bid
+  carries consequences well beyond losing it. Gaps are the point of the gap report.
