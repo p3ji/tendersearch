@@ -1,0 +1,17 @@
+[project]
+name = "tendersearch"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = ["requests>=2.31", "PyYAML>=6.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+canadabuys = "canadabuys.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+include = ["canadabuys*", "matching*"]

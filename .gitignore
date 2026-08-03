@@ -1,0 +1,19 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# Real data — never commit. Contains members' resumes and client names.
+profiles/*
+!profiles/_example/
+teams/*
+!teams/_example.yml
+notices/
+matches/
+bids/
+archives/
+outcomes.jsonl
+
+# Subagent-driven-development workspace (scratch)
+.superpowers/
