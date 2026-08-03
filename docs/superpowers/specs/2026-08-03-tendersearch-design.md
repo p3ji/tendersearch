@@ -156,7 +156,15 @@ the code path does not reliably compensate. v1 mitigates this two ways rather th
 - Score fit, and emit a bid/no-bid recommendation with reasoning.
 - Set the low-barrier flag (below).
 
-The rubric and scoring weights live in `.claude/skills/tender-matcher/` as editable markdown, to be tuned against real outcomes rather than guessed up front.
+The rubric and scoring weights live in `.claude/skills/tender-matcher/` as editable markdown.
+They are set and revised in two stages, both human-driven in v1:
+
+- **Initially**, from Annex B Pass 4 — read 50–100 verdicts over archived notices and correct the
+  systematic errors. This is where the starting weights come from, because on day one no outcomes
+  exist.
+- **Thereafter**, from `outcomes.jsonl` as real decisions accumulate. **Nothing adjusts itself.**
+  `/outcome` records; a human reads the record, spots a pattern, and edits the markdown. Automating
+  that proposal step is A5, deferred until enough outcomes exist to distinguish pattern from noise.
 
 **Low-barrier policy.** Given thin past performance, the matcher runs a second track, keyed off
 `noticeType` and `procurementMethod` rather than contract value (which the feed does not provide).
@@ -254,7 +262,40 @@ One per notice per profile-or-team: subject (profile or team id), score, recomme
 
 ### Outcome — `outcomes.jsonl`
 
-Append-only: notice id, decision (bid/no-bid), result (won/lost/no-award/pending), date, notes. Feeds rubric tuning and, over time, becomes past-performance evidence.
+Append-only. One record per notice the group made a decision about:
+
+- **Identity:** notice reference number, subject (which profile or team it was assessed for), date.
+- **What the tool said:** the score and recommendation at decision time, copied in. Stored on the
+  record rather than looked up later, because rubric edits change what a re-run would produce —
+  without this snapshot, disagreement between tool and human becomes unrecoverable.
+- **Decision:** `bid` or `no-bid`.
+- **Reason code** (the important field): a small controlled vocabulary — `capability-gap`,
+  `clearance`, `past-performance`, `capacity`, `timeline`, `poor-fit`, `incumbent-entrenched`,
+  `price-uncompetitive`, `scope-too-large`, `not-actually-our-work`. Plus free-text notes.
+- **Result**, when a bid was submitted: `won` / `lost` / `no-award` / `pending`, with its own reason
+  where known, and debrief notes if the buyer provided one.
+
+**Record no-bids as diligently as bids.** They are the signal that actually accumulates:
+
+| Signal | Rate | Value |
+|---|---|---|
+| No-bid decisions | Weekly | Highest — a labelled example every time the tool and you disagree |
+| Bid outcomes | A few per quarter | Moderate |
+| Wins | Rare | High, and doubles as past-performance evidence |
+
+A no-bid reading *"scored 78, no-bid, `clearance` — requirement was fatal"* is worth more than ten
+`lost` records with no explanation, because it isolates a specific rubric error. That is why the
+reason code is controlled vocabulary rather than prose: it makes the pattern countable.
+
+**Reason codes also mark which losses the rubric should ignore.** `price-uncompetitive` and
+`incumbent-entrenched` are losses on well-fitted work — the rubric could not and should not have
+predicted them. Tuning toward raw win rate would teach it to score down work the group is genuinely
+suited for. The rubric predicts *fit*; the reason code is what separates a fit error from an
+ordinary competitive loss.
+
+Over time, `won` records become past-performance evidence, which is this group's binding constraint
+— so `/outcome` prompts for the details a past-performance entry needs (value, dates, client
+reference) at the moment a win is recorded, while they are known.
 
 ## Commands
 
@@ -265,7 +306,7 @@ Append-only: notice id, decision (bid/no-bid), result (won/lost/no-award/pending
 | `/scrape` | Ingest new notices. Idempotent; safe to re-run. |
 | `/rank` | Run both matcher stages, write today's digest. Called by the daily schedule. |
 | `/apply <notice-id> [--profile <m>\|--team <t>]` | Build the bid draft in `bids/<notice-id>/`. Requires an existing verdict. |
-| `/outcome <notice-id>` | Record what happened. |
+| `/outcome <notice-id>` | Record the decision and its reason code; on a win, also capture the details a past-performance entry needs. Run for **no-bids too**, not only submitted bids. |
 
 **Schedule:** `/scrape` then `/rank`, weekday mornings. Notify only when a notice clears the score threshold, or when a tracked bid's deadline approaches.
 
@@ -542,13 +583,20 @@ unknown.
 **What.** Close the loop: use `outcomes.jsonl` to automatically adjust rubric weights, so the
 matcher improves as real results accumulate.
 
-**Shape.** Periodic review comparing predicted scores against actual bid/no-bid decisions and
-results, surfacing systematic bias ("we consistently over-score notices where the mandatory is a
-certification we lack"). Output is a proposed rubric edit **for human approval** — never a silent
-weight change, because an opaque scorer that drifts is worse than a crude one you understand.
+**Shape.** Periodic review comparing each record's stored score against the human decision,
+grouped by reason code, surfacing systematic bias ("we consistently over-score notices whose
+mandatory is a certification we lack"). Output is a proposed rubric edit **for human approval** —
+never a silent weight change, because an opaque scorer that drifts is worse than a crude one you
+understand.
+
+Analysis runs primarily on the **tool-said-yes / human-said-no** disagreements, since those are the
+plentiful signal, and must **exclude losses coded `price-uncompetitive` or `incumbent-entrenched`**
+from any fit-related adjustment — those are competitive losses on well-fitted work, and treating
+them as scoring errors would teach the rubric to avoid work the group should pursue.
 
 **Why deferred.** Needs data. With fewer than roughly twenty recorded outcomes, any adjustment is
-overfitting to noise.
+overfitting to noise. Automating it earlier would also hide the reasoning at exactly the stage when
+you most need to understand why the rubric behaves as it does.
 
 **Why v1 accommodates it.** `outcomes.jsonl` is captured from day one specifically to make this
 possible later. Recording outcomes has standalone value — it becomes past-performance evidence,
