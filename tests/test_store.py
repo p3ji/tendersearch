@@ -139,3 +139,46 @@ def test_first_seen_preserved_across_amendment(store):
 
 def test_rematch_fields_are_the_three_the_spec_names():
     assert set(REMATCH_FIELDS) == {"closing", "description", "selection_criteria"}
+
+
+# Regression coverage for the NTFS alternate-data-stream bug: a colon in a
+# reference number (e.g. "SSC-26-00034400:T", a real value from the feed)
+# turned into a hidden ADS instead of a real file, silently dropping the
+# notice from store.all(). These tests fail if that sanitization is ever
+# reverted -- unlike test_fetch.py's `== 80` counts, which only catch it
+# incidentally because the fixture happens to contain colon-bearing rows.
+
+
+def test_reference_containing_a_colon_roundtrips(store):
+    n = make(**{"referenceNumber-numeroReference": "SSC-26-00034400:T"})
+    store.save(n)
+    loaded = store.load(n.reference)
+    assert loaded == n
+    assert loaded.reference == "SSC-26-00034400:T"
+    # On Windows, a point lookup by reference can appear to succeed even
+    # unsanitized -- NTFS resolves the literal colon path straight to the
+    # alternate data stream. store.all()'s directory listing cannot: it
+    # globs "*/*.json" and an ADS entry never shows up as a file. This is
+    # the assertion that actually catches a reverted sanitizer.
+    assert n.reference in {x.reference for x in store.all()}
+
+
+def test_references_differing_only_by_illegal_characters_do_not_collide(store):
+    # Both strip to "ABCD" under a naive "remove the illegal character"
+    # sanitizer, even though the colon is in a different position.
+    a = make(**{"referenceNumber-numeroReference": "AB:CD"})
+    b = make(**{"referenceNumber-numeroReference": "A:BCD"})
+    store.save(a)
+    store.save(b)
+
+    all_refs = {n.reference for n in store.all()}
+    assert all_refs == {"AB:CD", "A:BCD"}
+    assert store.load("AB:CD").reference == "AB:CD"
+    assert store.load("A:BCD").reference == "A:BCD"
+
+
+def test_all_returns_every_saved_notice_including_colon_references(store):
+    refs = ["cb-1", "cb-2:X", "cb-3", "SSC-26-00034400:T"]
+    for r in refs:
+        store.save(make(**{"referenceNumber-numeroReference": r}))
+    assert len(list(store.all())) == len(refs)
