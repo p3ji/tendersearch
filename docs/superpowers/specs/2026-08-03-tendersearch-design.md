@@ -61,20 +61,66 @@ CanadaBuys  ──▶  Ingestion  ──▶  notices/   (raw, immutable)
 
 `.agents/skills/canadabuys-search/cli`, a Python CLI. The only layer that touches the network, so it is the only layer that breaks when CanadaBuys changes.
 
-- `fetch` — pull the CanadaBuys open tender notices CSV feed, normalize rows to the notice schema, dedupe against `notices/` by notice ID, write new records. Idempotent.
-- `enrich <notice-id>` — fetch the notice detail page for full description text and attachment URLs, merge into the existing record.
+**Source — verified 2026-08-03.** Open Government dataset *CanadaBuys tender notices*
+(https://open.canada.ca/data/en/dataset/6abd20d4-7a1c-4b38-baa2-9525d0bb2fd2). Two live feeds plus history:
+
+| Feed | URL | Refresh |
+|---|---|---|
+| New tender notices | `https://canadabuys.canada.ca/opendata/pub/newTenderNotice-nouvelAvisAppelOffres.csv` | every 2h, 6:15–22:15 (UTC-0500) |
+| Open tender notices | `https://canadabuys.canada.ca/opendata/pub/openTenderNotice-ouvertAvisAppelOffres.csv` | daily, 07:00–08:30 (UTC-0500) |
+| Fiscal-year archives (2022-23 → current) | `.../pub/<FY>-TenderNotice-AvisAppelOffres.csv` | daily |
+| Legacy archive 2009–2022 | `.../pub/2009-2022-tenderNoticeHistorical-AvisAppelOffresHistorique.csv` | static |
+
+Field reference: `https://donnees-data.tpsgc-pwgsc.gc.ca/ba2/ac-cb/soutien-support-eng.html`.
+
+`openTenderNotice` is the authority on what is currently open and drives the daily run.
+`newTenderNotice` is polled for same-day freshness when a faster cadence is wanted.
+The archives are not part of the daily path; they exist to calibrate the stage-2 rubric against
+thousands of real past notices and to see which organizations actually buy each service line.
+
+Commands:
+
+- `fetch` — pull the feed, normalize rows to the notice schema, upsert into `notices/`. Idempotent.
+- `enrich <notice-id>` — fetch attachment contents from the notice's `attachment` / `noticeURL`
+  values. **Not required for matching** (see below); used by `/apply`.
 
 Performs no judgment. Tested against saved fixtures with no network access.
 
-**Open risk — resolve first.** This design assumes the CanadaBuys open-data CSV feed exists, is refreshed daily, and carries enough per-notice detail to filter on (at minimum: id, title, buying org, UNSPSC/category, region, closing date, description or a detail URL). This has not been verified. **Implementation step one is confirming the feed's URL, schema, and refresh cadence, and pinning a real response as a test fixture.** If the feed proves inadequate, the fallback is HTML-scraping the tender-opportunities search UI — slower, more fragile, and subject to the site's crawl policy, but it changes nothing in the layers above. That isolation is the reason ingestion is a separate layer.
+**The CSV carries the full `tenderDescription`**, so stage-1 filtering and stage-2 judgment both run
+entirely off the feed with no per-notice page fetches. Detail fetching is therefore off the daily
+path completely — the fragile part of ingestion only runs on demand, for a notice already chosen.
+
+**Columns** (all bilingual, `-eng` / `-fra` suffixes, normalize to English and retain the French
+description): `title`, `referenceNumber`, `amendmentNumber`, `solicitationNumber`,
+`publicationDate`, `tenderClosingDate`, `amendmentDate`, `expectedContractStartDate`,
+`expectedContractEndDate`, `tenderStatus`, `gsin` + `gsinDescription`, `unspsc` +
+`unspscDescription`, `procurementCategory`, `noticeType`, `procurementMethod`,
+`selectionCriteria`, `limitedTenderingReason`, `tradeAgreements`, `regionsOfOpportunity`,
+`regionsOfDelivery`, `contractingEntityName` + address, `endUserEntitiesName` + address,
+`contactInfo*`, `noticeURL`, `attachment`, `tenderDescription`.
+
+Three consequences that the rest of this design depends on:
+
+- **There is no estimated-value column.** Contract value cannot be filtered on. Where value matters
+  it must be inferred from `tenderDescription`, and treated as advisory only. The low-barrier track
+  keys off `noticeType` and `procurementMethod` instead, which is more reliable regardless.
+- **Both `gsin` and `unspsc` are populated.** GSIN is the older PWGSC scheme and is widely used in
+  this feed; matching on UNSPSC alone would miss notices. Profiles carry both.
+- **Notices are amended in place.** The identity key is `referenceNumber` + `amendmentNumber`.
+  `fetch` upserts: an amendment updates the stored notice, and if `tenderClosingDate`,
+  `tenderDescription`, or `selectionCriteria` changed, the notice is re-queued for matching and the
+  digest flags it as amended. Silently keeping a stale verdict after an amendment is a correctness
+  bug, not a nicety — amendments routinely change criteria and deadlines.
 
 ### Layer 2 — Matching
 
 **Stage 1, deterministic filter (code, runs over everything).** Drops a notice when any holds:
 
 - Closing date has passed, or is inside the minimum-turnaround threshold (config, default 5 business days) — a bid that cannot physically be written is not a match.
-- Region is outside every active profile's geographic ability.
-- Zero UNSPSC/NAICS overlap **and** zero service-line keyword hits against every active profile.
+- `tenderStatus` is not Open (Expired, Cancelled).
+- `regionsOfDelivery` is outside every active profile's geographic ability.
+- Zero GSIN/UNSPSC/NAICS code overlap **and** zero service-line keyword hits against every active
+  profile, searching `title`, `tenderDescription`, `selectionCriteria`, and the code descriptions.
 
 Deliberately generous. A false positive costs a few cents of LLM judgment; a false negative costs a contract. Cuts a few hundred daily notices to a handful, which is what makes a daily scheduled run affordable.
 
@@ -87,7 +133,10 @@ Deliberately generous. A false positive costs a few cents of LLM judgment; a fal
 
 The rubric and scoring weights live in `.claude/skills/tender-matcher/` as editable markdown, to be tuned against real outcomes rather than guessed up front.
 
-**Low-barrier policy.** Given thin past performance, the matcher runs a second track. Notices that are standing offers, supply arrangements, sub-threshold contracts, or that name subcontracting opportunities are flagged and surfaced even at moderate fit. Large open competitions with heavy past-performance mandatories are scored honestly and will usually land as no-bid. The digest presents these as two separate sections, never one ranked list — "we could realistically get onto this vehicle" and "we should spend three weeks bidding this" are different decisions and must not be blended into a single ordering.
+**Low-barrier policy.** Given thin past performance, the matcher runs a second track, keyed off
+`noticeType` and `procurementMethod` rather than contract value (which the feed does not provide).
+Notices that are standing offers, supply arrangements, advance contract award notices, or that name
+subcontracting opportunities in the description are flagged and surfaced even at moderate fit. Large open competitions with heavy past-performance mandatories are scored honestly and will usually land as no-bid. The digest presents these as two separate sections, never one ranked list — "we could realistically get onto this vehicle" and "we should spend three weeks bidding this" are different decisions and must not be blended into a single ordering.
 
 ### Layer 3 — Application
 
@@ -145,7 +194,9 @@ Profiles are YAML rather than markdown prose — a deliberate divergence from `a
 
 - **Identity and legal status:** name, incorporated or sole proprietor, business number, PSPC supplier registration number if any, GST/HST registration.
 - **Clearance:** security clearance level held, and status (active/lapsed/eligible).
-- **Service lines:** each with a label, NAICS codes, UNSPSC codes, and keywords.
+- **Service lines:** each with a label, NAICS codes, **GSIN codes, UNSPSC codes**, and keywords.
+  Both GSIN and UNSPSC are required — the feed populates both and they do not map cleanly onto
+  each other, so carrying only one loses notices.
 - **Skills:** name, depth, years.
 - **Certifications:** name, issuer, expiry.
 - **Past performance:** list of {client, value, start, end, description, reference contact}. **May be empty.** The matcher must handle an empty list without treating it as disqualifying.
@@ -160,7 +211,17 @@ Name, member list, designated prime, and any attributes that exist only jointly 
 
 ### Notice — `notices/YYYY-MM/<id>.json`
 
-Normalized CanadaBuys fields: id, title, buying organization, procurement category, UNSPSC codes, region, publication date, closing date, estimated value where given, solicitation type, description, attachment URLs, source URL. Plus ingest metadata: first-seen timestamp, last-enriched timestamp, source feed.
+Normalized CanadaBuys fields, English-primary with the French description retained: reference
+number, amendment number, solicitation number, title, contracting entity, end-user entity,
+procurement category, notice type, procurement method, GSIN and UNSPSC codes with descriptions,
+selection criteria, trade agreements, regions of opportunity and delivery, publication date,
+closing date, amendment date, expected contract start/end, status, description, contact info,
+notice URL, attachment URLs. There is no estimated-value field in the source.
+
+Plus local metadata: first-seen timestamp, last-updated timestamp, source feed, amendment history,
+and a `needs_rematch` flag set when an amendment changes closing date, description, or criteria.
+
+File path uses the reference number; amendments update the same file rather than creating a new one.
 
 ### Verdict — within `matches/YYYY-MM-DD/verdicts.json`
 
@@ -189,27 +250,42 @@ Failures are loud. The one unacceptable failure mode is silently writing an empt
 
 - CSV schema change or unparseable feed → abort the run, notify, leave prior state untouched. Never write a partial or empty digest as if it were a real result.
 - Network failure during `fetch` → retry with backoff; on exhaustion, abort and notify.
-- `enrich` failure on a single notice → record the notice as un-enriched and continue; stage 1 still filters on CSV fields, and the digest marks the notice as detail-unavailable.
+- `enrich` failure on a single notice → report it during `/apply`. It cannot affect the daily run,
+  since matching never calls it.
 - Malformed `profile.yml` → fail that profile with a clear message, continue with others, and say in the digest which profiles were skipped.
 - Stage-2 verdict failing schema validation → retry once, then record as an error entry visible in the digest rather than dropping the notice.
 
 ## Testing
 
-- **Ingestion:** against saved CSV and HTML fixtures, no network. A fixture captured from the real feed is the schema contract; a change that breaks it should break the tests.
-- **Stage-1 filter:** unit tests with synthetic notices and profiles. Required cases: empty past performance, member with no UNSPSC codes, notice closing tomorrow, notice already closed, region mismatch, team unioning coverage that no single member has.
+- **Ingestion:** against saved CSV fixtures, no network. A fixture captured from the real feed is
+  the schema contract; a change that breaks it should break the tests. Required cases: bilingual
+  column normalization, an amendment updating an existing notice, an amendment that changes the
+  closing date (must set `needs_rematch`), and a re-run producing no duplicates.
+- **Stage-1 filter:** unit tests with synthetic notices and profiles. Required cases: empty past
+  performance, a notice matching on GSIN but not UNSPSC (and the reverse), notice closing tomorrow,
+  notice already closed, `tenderStatus` cancelled, region mismatch, and team unioning coverage that
+  no single member has.
 - **Stage-2 judgment:** a small set of hand-labelled real notices as a regression check — expected recommendation and expected gap list.
 - **Team unioning:** verified directly, since it is the mechanism the whole team model rests on.
 
 ## Implementation order
 
-1. Verify the CanadaBuys feed; pin fixtures; write `url-reference.md`. **Gate — the ingestion design depends on this.**
-2. Notice schema + `fetch`/`enrich` CLI, with fixture tests.
+1. Capture a live `openTenderNotice` CSV as a test fixture; write `url-reference.md` recording the
+   feeds, refresh windows, column list, and the three gotchas (no value column, dual GSIN/UNSPSC,
+   amendments-in-place). *The feed itself is verified — this is fixture capture, not a gate.*
+2. Notice schema + `fetch` with upsert/amendment handling, against fixtures.
 3. Profile and team schemas + `_example/`; `.gitignore`.
 4. `/profile` and `/team`.
 5. Stage-1 filter with unit tests.
 6. Stage-2 rubric skill and verdict schema; `/rank` and the digest.
 7. Scheduling and notification.
-8. `/apply`.
+8. `/apply`, and `enrich` for attachment contents.
 9. `/outcome`.
 
-Steps 1–6 constitute a useful tool on their own: it will tell the group what to bid on. Steps 8–9 remove drudgery afterwards.
+Steps 1–6 constitute a useful tool on their own: it will tell the group what to bid on. Steps 8–9
+remove drudgery afterwards.
+
+**Rubric calibration (after step 6).** Before trusting scores, run the matcher over a fiscal-year
+archive file and inspect what it would have flagged. This is cheap, uses no live quota, and is the
+only honest way to tune weights — my priors about what scores well are guesses until tested against
+notices that really existed.
