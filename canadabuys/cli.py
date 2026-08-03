@@ -2,12 +2,17 @@
 from __future__ import annotations
 
 import argparse
+import collections
 import datetime
 import pathlib
 import sys
 
+import yaml
+
 from canadabuys.fetch import FEEDS, fetch_feed, ingest
 from canadabuys.store import NoticeStore
+from matching.filter import FilterConfig, filter_all
+from matching.profile import load_profiles
 
 
 def _now_iso() -> str:
@@ -41,6 +46,42 @@ def cmd_stats(args) -> int:
     return 0
 
 
+def cmd_filter(args) -> int:
+    """Run stage 1 and report what survived and what was dropped, by reason.
+
+    This is Annex B Pass 2 (filter tuning): the reject histogram is how you
+    tell an over-broad keyword list from an over-narrow one.
+    """
+    profiles, errors = load_profiles(pathlib.Path(args.profiles), collect_errors=True)
+    for err in errors:
+        print(f"WARNING: skipping unreadable profile: {err}", file=sys.stderr)
+    if not profiles:
+        print("ERROR: no usable profiles found", file=sys.stderr)
+        return 1
+
+    cfg_data = {}
+    if pathlib.Path(args.config).exists():
+        cfg_data = yaml.safe_load(pathlib.Path(args.config).read_text(encoding="utf-8")) or {}
+    config = FilterConfig(
+        min_turnaround_days=cfg_data.get("min_turnaround_days", 5),
+        now=datetime.datetime.now(datetime.timezone.utc),
+    )
+
+    notices = list(NoticeStore(pathlib.Path(args.notices)).all())
+    results = filter_all(notices, profiles, [], config)
+    counts = collections.Counter(r.reason for r in results.values())
+    passed = counts.get("pass", 0)
+
+    print(f"notices: {len(notices)}")
+    print(f"passed:  {passed}")
+    for reason, count in counts.most_common():
+        if reason != "pass":
+            print(f"  dropped [{reason}]: {count}")
+    if len(notices):
+        print(f"pass rate: {passed / len(notices):.1%}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="canadabuys")
     parser.add_argument("--notices", default="notices", help="notice store root")
@@ -53,6 +94,11 @@ def main(argv: list[str] | None = None) -> int:
 
     p_stats = sub.add_parser("stats", help="summarize the notice store")
     p_stats.set_defaults(func=cmd_stats)
+
+    p_filter = sub.add_parser("filter", help="run stage 1 and report the outcome")
+    p_filter.add_argument("--profiles", default="profiles")
+    p_filter.add_argument("--config", default="config.yml")
+    p_filter.set_defaults(func=cmd_filter)
 
     args = parser.parse_args(argv)
     return args.func(args)
