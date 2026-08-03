@@ -1,0 +1,44 @@
+# Schema reference. Fake data — safe to commit.
+# Real profiles live in profiles/<member>/ and are git-ignored.
+member_id: example
+name: Jordan Example
+clearance:
+  level: Reliability        # None | Reliability | Secret | Top Secret
+  status: active             # active | lapsed | eligible
+
+regions:                    # must match CanadaBuys regionsOfDelivery values
+  - Ontario
+  - Canada
+
+service_lines:
+  - label: Data engineering and analytics
+    naics: ["541512"]
+    unspsc: ["81111500", "81112200"]   # primary code path — 84% feed coverage
+    gsin: []                            # sparse (4%), but free to carry
+    keywords:                           # not optional: 15% of notices carry no code
+      - data pipeline
+      - data warehouse
+      - business intelligence
+      # Run /profile to expand these with vocabulary mined from real notices.
+
+skills:
+  - {name: Python, depth: expert, years: 8}
+  - {name: dbt, depth: working, years: 3}
+
+certifications:
+  - {name: PMP, issuer: PMI, expiry: "2028-01-31"}
+
+# MAY BE EMPTY. Thin past performance is expected and is never disqualifying.
+past_performance:
+  - client: Example Corp
+    value: 85000
+    start: "2024-03-01"
+    end: "2024-11-30"
+    description: Built a reporting pipeline consolidating four source systems.
+    reference: {name: Sam Reference, email: sam@example.com}
+
+vehicles: []      # standing offers / supply arrangements held
+
+evidence:
+  resume: evidence/jordan-resume.pdf
+  capability_statement: evidence/capability.pdf

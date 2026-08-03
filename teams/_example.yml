@@ -1,0 +1,6 @@
+# Schema reference. Capabilities are NEVER listed here — they are unioned from
+# member profiles at match time so profile edits propagate automatically.
+team_id: example-team
+name: Example Delivery Team
+members: [example]
+prime: example
