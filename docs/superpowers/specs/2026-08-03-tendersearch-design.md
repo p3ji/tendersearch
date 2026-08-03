@@ -110,8 +110,21 @@ Three consequences that the rest of this design depends on:
 - **There is no estimated-value column.** Contract value cannot be filtered on. Where value matters
   it must be inferred from `tenderDescription`, and treated as advisory only. The low-barrier track
   keys off `noticeType` and `procurementMethod` instead, which is more reliable regardless.
-- **Both `gsin` and `unspsc` are populated.** GSIN is the older PWGSC scheme and is widely used in
-  this feed; matching on UNSPSC alone would miss notices. Profiles carry both.
+- **Code coverage is partial, and that is a design constraint.** Measured against the live
+  `openTenderNotice` feed on 2026-08-03 (896 open notices): `unspsc` populated on 757 (84%),
+  `gsin` on only 39 (4%). **139 notices (15%) carry no code at all.** Two consequences: UNSPSC is
+  the primary code path and GSIN a sparse supplement (still carried — it costs nothing, and the
+  F-series service codes it does use are relevant to consulting); and code matching alone is
+  structurally blind to roughly one notice in six, so keyword coverage is not a nicety but the
+  only thing that sees those. Re-measure before relying on these ratios.
+
+- **Multi-value fields are `*`-prefixed and newline-separated** — e.g. `unspsc` as
+  `"*12160000\n*12350000"`, `regionsOfDelivery` as `"*Nova Scotia\n*Yukon"`. Parse by splitting on
+  newline and stripping the leading `*`. Single values carry the `*` prefix too (`"*Canada"`).
+
+- **Volume is modest.** The entire open set was 896 notices, with 3 new that day. Stage-2 cost was
+  a design worry premised on "a few hundred daily"; at this scale it is not a constraint. Stage 1
+  still matters — for signal-to-noise in the digest, not for cost.
 - **Notices are amended in place.** The identity key is `referenceNumber` + `amendmentNumber`.
   `fetch` upserts: an amendment updates the stored notice, and if `tenderClosingDate`,
   `tenderDescription`, or `selectionCriteria` changed, the notice is re-queued for matching and the
@@ -227,9 +240,9 @@ Profiles are YAML rather than markdown prose — a deliberate divergence from `a
 
 - **Identity and legal status:** name, incorporated or sole proprietor, business number, PSPC supplier registration number if any, GST/HST registration.
 - **Clearance:** security clearance level held, and status (active/lapsed/eligible).
-- **Service lines:** each with a label, NAICS codes, **GSIN codes, UNSPSC codes**, and keywords.
-  Both GSIN and UNSPSC are required — the feed populates both and they do not map cleanly onto
-  each other, so carrying only one loses notices.
+- **Service lines:** each with a label, NAICS codes, **UNSPSC codes, GSIN codes**, and keywords.
+  UNSPSC is the primary code path (84% feed coverage); GSIN is sparse (4%) but free to carry.
+  Keywords are not optional — 15% of notices carry no code at all and are reachable only lexically.
 - **Skills:** name, depth, years.
 - **Certifications:** name, issuer, expiry.
 - **Past performance:** list of {client, value, start, end, description, reference contact}. **May be empty.** The matcher must handle an empty list without treating it as disqualifying.
