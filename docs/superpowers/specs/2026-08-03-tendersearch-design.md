@@ -33,7 +33,7 @@ Recorded so they are not relitigated during implementation.
 
 **Explicitly excluded from v1:** filled procurement forms, pricing tables, SACC clause handling
 (A2), web dashboard (A1), non-CanadaBuys sources (A3), award intelligence (A4), outcome-driven
-rubric learning (A5). Automated submission of anything is excluded permanently (A6).
+rubric learning (A5). Automated submission of anything is excluded permanently (A8).
 
 Each is specified in the **Appendix — Deferred functionality**, with the rationale for waiting and
 the trigger that should prompt building it.
@@ -80,8 +80,9 @@ Field reference: `https://donnees-data.tpsgc-pwgsc.gc.ca/ba2/ac-cb/soutien-suppo
 
 `openTenderNotice` is the authority on what is currently open and drives the daily run.
 `newTenderNotice` is polled for same-day freshness when a faster cadence is wanted.
-The archives are not part of the daily path; they exist to calibrate the stage-2 rubric against
-thousands of real past notices and to see which organizations actually buy each service line.
+The archives are never fetched by the daily run. They are an offline corpus of real past notices,
+used once during setup and occasionally thereafter — see **Annex B — Working with the archives**
+for exactly what is run against them and which decision each output settles.
 
 Commands:
 
@@ -127,7 +128,26 @@ Three consequences that the rest of this design depends on:
 - Zero GSIN/UNSPSC/NAICS code overlap **and** zero service-line keyword hits against every active
   profile, searching `title`, `tenderDescription`, `selectionCriteria`, and the code descriptions.
 
-Deliberately generous. A false positive costs a few cents of LLM judgment; a false negative costs a contract. Cuts a few hundred daily notices to a handful, which is what makes a daily scheduled run affordable.
+Deliberately generous. A false positive costs a few cents of LLM judgment; a false negative costs a
+contract. Cuts a few hundred daily notices to a handful, which is what makes a daily scheduled run
+affordable.
+
+**Stage 1 is a recall gate, and that asymmetry governs its design.** A notice it drops is never
+judged, never appears in a digest, and is invisible forever — there is no later stage that can
+recover it. Precision failures are self-correcting (stage 2 discards them); recall failures are
+permanent and silent. When tuning, err toward letting things through.
+
+Lexical matching has a known structural weakness here: procurement officers describe work in their
+own vocabulary, not the profile author's, and buyers assign GSIN/UNSPSC codes inconsistently, so
+the code path does not reliably compensate. v1 mitigates this two ways rather than ignoring it:
+
+- **Mined vocabulary.** `/profile` expands each service line's keywords with terms harvested from
+  how real notices in that category are actually worded (Annex B, Pass 1), instead of relying on
+  self-description.
+- **Measured, not assumed.** The recall audit (Annex B, Pass 3) samples what stage 1 *rejected* and
+  reports the miss rate and its causes. The residual that vocabulary cannot fix — notices related
+  in concept with no shared term or code — is quantified rather than guessed at, and is the trigger
+  for **A7 — semantic retrieval**.
 
 **Stage 2, LLM judgment (survivors only).** For each surviving notice, against each active profile and each active team:
 
@@ -290,10 +310,133 @@ Failures are loud. The one unacceptable failure mode is silently writing an empt
 Steps 1–6 constitute a useful tool on their own: it will tell the group what to bid on. Steps 8–9
 remove drudgery afterwards.
 
-**Rubric calibration (after step 6).** Before trusting scores, run the matcher over a fiscal-year
-archive file and inspect what it would have flagged. This is cheap, uses no live quota, and is the
-only honest way to tune weights — my priors about what scores well are guesses until tested against
-notices that really existed.
+**Archive passes.** Three offline runs against a fiscal-year archive are woven into the order
+above, not bolted on afterwards: vocabulary mining feeds step 4, filter tuning and the recall audit
+gate step 5, and the face-validity read gates step 6. Full methodology in **Annex B**.
+
+---
+
+# Annex B — Working with the archives
+
+The daily pipeline never touches the archive files. This annex covers the separate, offline uses
+of that corpus. Read it as four distinct passes with different costs, different outputs, and a
+different decision settled by each.
+
+**What the corpus is.** A fiscal-year file (e.g. `2024-2025-TenderNotice-AvisAppelOffres.csv`) is
+every tender notice published in that year, with **identical columns to the live feed**. That
+identity is the whole trick: any code that processes a live notice processes an archived one
+unchanged, so the archive is a free, offline, realistic input set available before the tool has
+ever run live. Download once into `archives/` (git-ignored, large).
+
+**What the corpus is not.** It contains the *asks*, not the *outcomes* — there is no winner, no
+awarded value, no bidder count. Nothing in this data can tell you whether a high score predicts a
+win. Every pass below is therefore checking the matcher against **your judgment and against
+observable volume**, never against real-world success. Predictive accuracy is unavailable until
+`outcomes.jsonl` accumulates (A5) or award data is joined (A4). The word "calibration" is avoided
+here for that reason.
+
+## Pass 1 — Vocabulary mining (feeds `/profile`, step 4)
+
+**Cost:** no LLM over the corpus; one LLM call per service line over a sampled extract.
+
+**What runs.** For a service line, pull every archived notice whose GSIN or UNSPSC codes fall in
+that line's declared codes. From that subset, extract the recurring vocabulary of the `title`,
+`tenderDescription`, and `selectionCriteria` fields — the terms procurement officers actually use.
+
+**Why it matters.** You describe your work the way a consultant does; buyers describe it the way a
+procurement officer does. "Change management" is written up as "business transformation advisory
+services" or "organizational readiness support." A keyword list authored from self-description has
+a systematic blind spot, and Pass 1 removes it by sourcing terms from the buyer's side.
+
+**Output.** Proposed keyword additions to each service line in `profile.yml`, presented for
+approval — never written silently, since an over-broad keyword list degrades stage 1 for everyone.
+
+**Decision settled.** What goes in each service line's `keywords`.
+
+## Pass 2 — Filter tuning (gates step 5)
+
+**Cost:** free. Pure code, no LLM.
+
+**What runs.** Stage 1 alone over the full archive year, with real profiles loaded. Count
+survivors, and bucket them by month, category, and contracting organization.
+
+**How to read it.** Divide survivors by 52. That number is what stage 2 would judge per week, and
+therefore both the daily LLM cost and the volume you'd be asked to read.
+
+- Hundreds per week → the filter is too generous. Codes or keywords are over-broad; tighten.
+- Low single digits per year → too narrow. You will miss work. Widen codes, revisit Pass 1.
+- A handful per week → workable.
+
+**Decision settled.** Code and keyword breadth, and the minimum-turnaround threshold — sweep it
+across a few values and see how many notices each setting would have excluded as unbiddable.
+
+## Pass 3 — Recall audit (gates step 5, and decides A7)
+
+**Cost:** one LLM pass over a bounded sample of notices stage 1 *rejected*.
+
+This is the most important pass and the one that is easy to skip, because it examines what the
+system throws away — the failure mode that is invisible by construction.
+
+**What runs.** Take the notices stage 1 rejected on the "no code overlap and no keyword hit"
+condition. Random-sample a few hundred. Ask an LLM to judge each against the profiles with a single
+question: *would this team plausibly have wanted to see this?*
+
+**Output.** A miss rate, plus the specific missed notices, and — most usefully — *why* each was
+missed. The failures cluster, and the cluster tells you the fix:
+
+- Missed on **vocabulary** (right work, unfamiliar phrasing) → return to Pass 1; keywords can fix it.
+- Missed on **codes** (buyer filed it under a code you don't carry) → widen the code lists.
+- Missed on **concept** (semantically related, no lexical overlap at all, no shared code) → keyword
+  matching structurally cannot catch these. This is the residual that justifies **A7 — semantic
+  retrieval**, and its size is the trigger.
+
+**Decision settled.** Whether v1's lexical filter is good enough, and whether to build A7. Re-run
+this audit after any significant filter change.
+
+## Pass 4 — Face-validity read (gates step 6)
+
+**Cost:** LLM stage 2 over 50–100 notices.
+
+**What runs.** Take a stratified sample of stage-1 survivors — spread across categories,
+organizations, and score bands — and run full stage-2 judgment. Then read the verdicts by hand.
+
+**What to look for**, in priority order:
+
+1. **Criteria extraction.** Are the extracted mandatories actually the notice's mandatories, or is
+   the model inventing structure the notice doesn't contain? Everything downstream is worthless if
+   this is wrong.
+2. **Attribution.** Is each covered requirement credited to a member who genuinely covers it?
+3. **Gap honesty.** Are real gaps reported as gaps, not smoothed into "unclear"?
+4. **Score ordering.** Ignore absolute numbers; ask whether the ranking is right. Is anything
+   scored 80+ that you'd refuse to bid? Anything under 40 you'd have wanted?
+5. **Low-barrier track.** Are standing offers and supply arrangements being surfaced separately, as
+   designed?
+
+Errors here are systematic rather than random — a rubric that over-weights title matches, or treats
+a "preferred" qualification as a hard fail, or under-weights a security clearance requirement that
+is in fact fatal. Each systematic error is one rubric edit in `.claude/skills/tender-matcher/`.
+
+**Decision settled.** Rubric weights, and the notification threshold — set it from the observed
+score distribution and your own accept/reject calls on the sample, not from a round number.
+
+## Pass 5 — Market map (standalone, re-run occasionally)
+
+**Cost:** free. Aggregation only, no LLM, no matcher.
+
+**What runs.** Filter the archive to your service lines' codes, then group by
+`contractingEntityName`, by `procurementMethod`, and by `noticeType`.
+
+**Output.** Which organizations actually buy what you sell and how often; what share arrives via
+standing offers and supply arrangements rather than open competition; and seasonality, which for
+federal buyers is pronounced around fiscal year-end.
+
+**Why it is separate.** This feeds no code path. It is a business targeting document — which
+departments to build relationships with, which vehicles to pursue given thin past performance, and
+whether a declared service line corresponds to anything the government actually procures. A service
+line generating near-zero notice volume is worth discovering before building a bid strategy on it.
+
+**Decision settled.** Where to spend business-development effort, and whether the declared service
+lines are the right ones.
 
 ---
 
@@ -356,7 +499,7 @@ the template library from those, not from guesses.
 **Trigger.** The same form has been filled by hand three times.
 
 **Scope guard.** Even when built, this generates artifacts for a human to review and submit.
-Automated submission to CanadaBuys is permanently out of scope — see A6.
+Automated submission to CanadaBuys is permanently out of scope — see A8.
 
 ## A3 — Additional procurement sources
 
@@ -413,7 +556,38 @@ which is this group's binding constraint.
 
 **Trigger.** Twenty-plus recorded outcomes.
 
-## A6 — Permanently out of scope
+## A7 — Semantic retrieval in stage 1
+
+**What.** Replace stage 1's purely lexical test with a hybrid: keep the code and keyword match, and
+add an embedding-similarity check so a notice survives if it is *semantically* close to a service
+line even with no shared term or code. Targets the residual identified in Annex B, Pass 3 — the
+notices lexical matching structurally cannot reach.
+
+**Shape.** Embed each service line once (label, description, mined vocabulary, representative past
+work) into a small stored vector. At ingest, embed each notice's `title` +
+`tenderDescription` + `selectionCriteria`. A notice survives stage 1 if it passes the lexical test
+**or** exceeds a similarity threshold against any active profile's service lines — a union, never
+an intersection, since the entire purpose is to *raise* recall. Local sentence-embedding model, no
+API dependency; daily volume is a few hundred notices, so this is seconds of CPU. The threshold is
+set from the Pass 3 sample: pick the value that recovers most true misses without flooding stage 2,
+and re-audit afterwards.
+
+**Why deferred rather than built.** Not because it's unimportant — it addresses the system's worst
+failure mode — but because its value is currently unmeasured. It adds a model dependency, a vector
+store, an embedding step at ingest, and a threshold that itself needs tuning. Pass 3 tells you
+whether that complexity buys anything; the honest answer might be that mined vocabulary already
+recovers most of the gap. Building it first would mean carrying that cost on faith, and tuning a
+similarity threshold with no measurement of what it was supposed to fix.
+
+**Sequencing note.** Pass 3 must run *before* this is built, and again after, using the same
+sample — that is the only way to know it worked.
+
+**Trigger.** The Pass 3 recall audit shows a material share of rejected notices were genuinely
+relevant *and* missed on concept rather than on vocabulary or codes (i.e. the failures survive a
+Pass 1 keyword refresh). Also triggers if live use surfaces a tender you'd have wanted that stage 1
+had silently dropped — one confirmed real-world instance is worth more than the audit.
+
+## A8 — Permanently out of scope
 
 Not deferred. Excluded by intent, recorded so nobody proposes them as a natural next step.
 
