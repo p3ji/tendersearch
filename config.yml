@@ -6,5 +6,5 @@ min_turnaround_days: 5
 # Pass 4 score distribution, not from a round number.
 notify_score_threshold: 70
 
-active_profiles: []   # empty means all profiles found
-active_teams: []
+active_profiles: []   # empty means all profiles found; consumed by `canadabuys filter`
+active_teams: []      # empty means all teams; consumed by /rank at stage 2, NOT by the filter

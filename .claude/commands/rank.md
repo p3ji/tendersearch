@@ -6,7 +6,11 @@ Produce today's tender digest.
 
 ## 1. Filter
 
-Run: `canadabuys filter --profiles profiles`
+Run: `canadabuys filter --profiles profiles --json matches/<today>/stage1.json`
+
+(Note the argument order: `--notices` is a top-level flag and must come
+*before* the subcommand, e.g. `canadabuys --notices notices filter ...` —
+`canadabuys filter --notices notices` fails.)
 
 Report the pass rate and the reject histogram. If the pass rate looks wrong —
 near zero, or nearly everything — say so before continuing. That is a profile
@@ -14,13 +18,22 @@ problem, not a judgment problem, and running stage 2 on top of it wastes effort.
 
 ## 2. Judge
 
-For each notice that passed, load it from `notices/` and apply the
+Read `matches/<today>/stage1.json` — each entry is a notice that passed
+stage 1, with its reference, title, buyer, closing date, `needs_rematch`,
+matched codes/keywords/service lines, and low-barrier classification. For
+each entry, load the full notice from `notices/` (by reference) and apply the
 `tender-matcher` skill against every active profile and team (from `config.yml`;
 empty lists mean all). Skip any notice that already has a verdict in a previous
 `matches/` directory **unless** its `needs_rematch` flag is true — an amendment
 may have changed the criteria or the deadline.
 
 Write all verdicts to `matches/<today>/verdicts.json`.
+
+After a notice's verdict is durably written to `matches/<today>/verdicts.json`,
+call `NoticeStore.clear_rematch(reference)` for that notice. Do this **after**
+the verdict is written, not before — clearing first and getting interrupted
+would lose the flag and the notice would never be re-judged despite the
+amendment.
 
 ## 3. Write the digest
 

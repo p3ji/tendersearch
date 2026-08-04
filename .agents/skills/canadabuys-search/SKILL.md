@@ -17,6 +17,10 @@ changing any parsing code.**
     canadabuys stats                  # summarize the store
     canadabuys filter --profiles profiles   # run stage 1, report the histogram
 
+`--notices` is a top-level flag and must come *before* the subcommand:
+`canadabuys --notices notices filter --profiles profiles` works;
+`canadabuys filter --notices notices` does not.
+
 ## Rules
 
 - **Ingestion performs no judgment.** No scoring, no relevance filtering, no LLM.
