@@ -25,7 +25,7 @@ REMATCH_FIELDS: tuple[str, ...] = ("closing", "description", "selection_criteria
 _INVALID_FS_CHARS = '<>:"/\\|?*'
 
 
-def _safe_filename(reference: str) -> str:
+def safe_filename(reference: str) -> str:
     sanitized = "".join("_" if c in _INVALID_FS_CHARS else c for c in reference)
     if sanitized == reference:
         return sanitized
@@ -52,10 +52,10 @@ class NoticeStore:
 
     def path_for(self, reference: str, first_seen: str) -> pathlib.Path:
         month = first_seen[:7]  # "2026-08"
-        return self.root / month / f"{_safe_filename(reference)}.json"
+        return self.root / month / f"{safe_filename(reference)}.json"
 
     def _find(self, reference: str) -> pathlib.Path | None:
-        matches = sorted(self.root.glob(f"*/{_safe_filename(reference)}.json"))
+        matches = sorted(self.root.glob(f"*/{safe_filename(reference)}.json"))
         return matches[0] if matches else None
 
     def load(self, reference: str) -> Notice | None:

@@ -11,10 +11,11 @@ import sys
 import yaml
 
 from canadabuys.fetch import FEEDS, fetch_feed, ingest
-from canadabuys.store import NoticeStore
+from canadabuys.store import NoticeStore, safe_filename
 from matching.filter import FilterConfig, filter_all
 from matching.lowbarrier import classify
 from matching.profile import load_profiles
+from matching.verdict import VerdictError, load_verdict
 
 
 def _now_iso() -> str:
@@ -139,6 +140,113 @@ def cmd_filter(args) -> int:
     return 0
 
 
+def cmd_apply(args) -> int:
+    """Assemble bids/<notice-id>/scaffold.json from an existing verdict.
+
+    This is the deterministic half of /apply: resolving the verdict, the
+    notice, and each covering member's evidence file paths. The /apply
+    command (an LLM step) reads this scaffold plus the evidence files to
+    write the actual matrix, checklist, and draft prose -- see
+    .claude/commands/apply.md.
+    """
+    if args.profile and args.team:
+        print("ERROR: pass --profile or --team, not both", file=sys.stderr)
+        return 1
+    subject = args.profile or args.team
+
+    try:
+        verdict = load_verdict(pathlib.Path(args.matches), args.notice_id, subject)
+    except VerdictError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+    notice = NoticeStore(pathlib.Path(args.notices)).load(args.notice_id)
+    if notice is None:
+        print(f"ERROR: no notice found for reference {args.notice_id!r}", file=sys.stderr)
+        return 1
+
+    if notice.needs_rematch:
+        print(
+            f"WARNING: notice {args.notice_id!r} was amended after the "
+            f"{verdict.matches_date} verdict was written; the matrix may be "
+            f"stale. Consider re-running /rank first.",
+            file=sys.stderr,
+        )
+
+    profiles_root = pathlib.Path(args.profiles)
+    profiles, errors = load_profiles(profiles_root, collect_errors=True)
+    if errors:
+        print("ERROR: one or more profiles failed to load; refusing to resolve "
+              "evidence with partial profile data:", file=sys.stderr)
+        for err in errors:
+            print(f"  {err}", file=sys.stderr)
+        return 1
+    by_id = {p.member_id: p for p in profiles}
+
+    requirements = []
+    missing_members = set()
+    for req in verdict.requirements:
+        evidence = {}
+        if req.covered_by:
+            member = by_id.get(req.covered_by)
+            if member is None:
+                missing_members.add(req.covered_by)
+            else:
+                evidence = {
+                    label: str(profiles_root / member.member_id / rel_path)
+                    for label, rel_path in member.evidence.items()
+                }
+        requirements.append({
+            "text": req.text,
+            "kind": req.kind,
+            "status": req.status,
+            "covered_by": req.covered_by,
+            "note": req.note,
+            "evidence": evidence,
+        })
+    if missing_members:
+        print(
+            f"ERROR: verdict names member(s) not found in {profiles_root}: "
+            f"{', '.join(sorted(missing_members))}",
+            file=sys.stderr,
+        )
+        return 1
+
+    scaffold = {
+        "notice": {
+            "reference": notice.reference,
+            "title": notice.title,
+            "entity": notice.entity,
+            "closing": notice.closing.isoformat() if notice.closing else None,
+            "description": notice.description,
+            "selection_criteria": notice.selection_criteria,
+            "notice_url": notice.notice_url,
+            "attachments": notice.attachments,
+            "needs_rematch": notice.needs_rematch,
+        },
+        "verdict": {
+            "subject": verdict.subject,
+            "subject_kind": verdict.subject_kind,
+            "score": verdict.score,
+            "recommendation": verdict.recommendation,
+            "low_barrier": {
+                "is_low_barrier": verdict.low_barrier.is_low_barrier,
+                "kind": verdict.low_barrier.kind,
+            },
+            "reasoning": verdict.reasoning,
+            "deal_breakers": verdict.deal_breakers,
+            "matches_date": verdict.matches_date,
+        },
+        "requirements": requirements,
+    }
+
+    out_path = pathlib.Path(args.bids) / safe_filename(args.notice_id) / "scaffold.json"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(scaffold, indent=2, ensure_ascii=False), encoding="utf-8")
+    print(f"wrote {out_path}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="canadabuys")
     parser.add_argument("--notices", default="notices", help="notice store root")
@@ -161,6 +269,15 @@ def main(argv: list[str] | None = None) -> int:
         help="include rejected notices in --json output (Annex B recall audit)",
     )
     p_filter.set_defaults(func=cmd_filter)
+
+    p_apply = sub.add_parser("apply", help="assemble the bid scaffold for a judged notice")
+    p_apply.add_argument("notice_id", help="notice reference number")
+    p_apply.add_argument("--profile", help="disambiguate by member id")
+    p_apply.add_argument("--team", help="disambiguate by team id")
+    p_apply.add_argument("--profiles", default="profiles")
+    p_apply.add_argument("--matches", default="matches")
+    p_apply.add_argument("--bids", default="bids")
+    p_apply.set_defaults(func=cmd_apply)
 
     args = parser.parse_args(argv)
     return args.func(args)
