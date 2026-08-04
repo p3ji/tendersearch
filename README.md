@@ -21,7 +21,7 @@ filters them against per-member capability profiles, judges the survivors agains
 you control, and writes a digest telling you what to bid on and what to skip.
 
 ```
-/scrape              /rank                        /apply  (not built yet)
+/scrape              /rank                        /apply
   |                    |                            |
   v                    v                            v
 Pull open          Stage 1: code filter         Assemble a draft
@@ -49,12 +49,12 @@ The matching engine is built and tested. The application assistant is not.
 
 | Piece | State |
 |---|---|
-| Feed ingestion, amendment handling | Built — 106 tests, all offline |
+| Feed ingestion, amendment handling | Built — 126 tests, all offline |
 | Stage-1 filter, low-barrier classification | Built |
 | Stage-2 rubric + `/rank` digest | Built |
 | Member profiles, teams | Built |
 | Archive analysis tooling | Built |
-| `/apply` — assembled response draft | **Not built** — a second plan, written against the matcher's real output |
+| `/apply` — assembled response draft | Built |
 | `/outcome` — decision + result recording | **Not built** — schema is specified, commands are not |
 
 ## Prerequisites
