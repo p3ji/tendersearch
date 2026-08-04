@@ -44,9 +44,11 @@ Notices whose criteria or deadline changed. Re-read these; a prior decision
 may no longer hold.
 ```
 
-Sort each section by score descending. For anything scoring at or above
-`notify_score_threshold` in `config.yml`, list it first and state the days
-remaining until closing.
+Sort the open-competitions section by score descending. The low-barrier
+section sorts by confidence first, then by score descending within each
+confidence group (see "Low-barrier confidence" below). For anything scoring
+at or above `notify_score_threshold` in `config.yml`, list it first and state
+the days remaining until closing.
 
 ### Low-barrier confidence
 
@@ -56,8 +58,10 @@ alongside `kind`. `high` confidence comes from structured `noticeType` /
 `low` confidence comes from a description-keyword rule for subcontracting
 clauses that was measured against real feed data and produced 30 out of 30
 false positives — 26 of them the identical Indigenous Business Directory
-boilerplate clause. The rule is kept because it still catches real cases, but
-its output is unreliable.
+boilerplate clause. No genuine positives were observed in the measured
+sample. The rule is retained by explicit decision of the project owner so
+these notices stay visible for manual verification rather than being
+silently dropped, not because it has demonstrated any true positives.
 
 Within the low-barrier section:
 - Sort `confidence == "high"` entries above `confidence == "low"` entries
