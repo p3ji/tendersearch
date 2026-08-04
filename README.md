@@ -71,7 +71,7 @@ The matching engine is built and tested. The application assistant is not.
 python -m venv .venv
 source .venv/Scripts/activate      # Windows Git Bash; use .venv/bin/activate on macOS/Linux
 pip install -e ".[dev]"
-pytest                             # 106 tests, no network
+pytest                             # 126 tests, no network
 ```
 
 ### 2. Pull the notices
@@ -191,7 +191,7 @@ against observable volume, nothing more. The full methodology is Annex B of the
 canadabuys/        Feed ingestion. All network and file I/O. No judgment logic.
 matching/          Stage-1 filter, profiles, teams, low-barrier. Pure functions.
 tools/             Offline archive analysis.
-tests/             106 tests. Fixtures are real feed data; nothing hits the network.
+tests/             126 tests. Fixtures are real feed data; nothing hits the network.
 
 .claude/skills/tender-matcher/     The stage-2 rubric. Markdown, meant to be edited.
 .claude/commands/                  /scrape /rank /profile /team
