@@ -29,7 +29,10 @@ class ServiceLine:
     keywords: list[str] = dataclasses.field(default_factory=list)
 
     def has_any_signal(self) -> bool:
-        return bool(self.naics or self.unspsc or self.gsin or self.keywords)
+        # naics is deliberately excluded: the feed carries no NAICS column,
+        # so a NAICS-only line would pass this guard and then match nothing
+        # in filter_notice. See load_profile's error message below.
+        return bool(self.unspsc or self.gsin or self.keywords)
 
 
 @dataclasses.dataclass
@@ -83,6 +86,9 @@ def load_profile(path: pathlib.Path) -> Profile:
             f"{path}: 'regions' is present but empty, which is not a valid configuration"
         )
 
+    if data["service_lines"] is None:
+        raise ProfileError(f"{path}: 'service_lines' is present but empty (null)")
+
     lines = []
     for raw in data["service_lines"]:
         line = ServiceLine(
@@ -93,6 +99,12 @@ def load_profile(path: pathlib.Path) -> Profile:
             keywords=[k.lower() for k in (raw.get("keywords") or [])],
         )
         if not line.has_any_signal():
+            if line.naics:
+                raise ProfileError(
+                    f"{path}: service line {line.label!r} has only NAICS code(s), "
+                    f"but the CanadaBuys feed carries no NAICS data -- it can never "
+                    f"match anything. Add UNSPSC/GSIN codes or keywords."
+                )
             raise ProfileError(
                 f"{path}: service line {line.label!r} has no codes and no keywords, "
                 f"so it can never match anything"
@@ -132,14 +144,21 @@ def load_profiles(root, collect_errors: bool = False):
 
 def load_team(path, profiles: list[Profile]) -> Team:
     path = pathlib.Path(path)
-    data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    known = {p.member_id for p in profiles}
-    unknown = [m for m in data["members"] if m not in known]
-    if unknown:
-        raise ProfileError(f"{path}: unknown member(s): {', '.join(unknown)}")
-    return Team(
-        team_id=data["team_id"],
-        name=data["name"],
-        members=data["members"],
-        prime=data.get("prime", data["members"][0]),
-    )
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            raise ProfileError(f"{path}: expected a mapping at the top level")
+        known = {p.member_id for p in profiles}
+        unknown = [m for m in data["members"] if m not in known]
+        if unknown:
+            raise ProfileError(f"{path}: unknown member(s): {', '.join(unknown)}")
+        return Team(
+            team_id=data["team_id"],
+            name=data["name"],
+            members=data["members"],
+            prime=data.get("prime", data["members"][0]),
+        )
+    except yaml.YAMLError as exc:
+        raise ProfileError(f"{path}: invalid YAML: {exc}") from exc
+    except KeyError as exc:
+        raise ProfileError(f"{path}: missing required field: {exc}") from exc

@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import collections
 import datetime
+import json
 import pathlib
 import sys
 
@@ -12,6 +13,7 @@ import yaml
 from canadabuys.fetch import FEEDS, fetch_feed, ingest
 from canadabuys.store import NoticeStore
 from matching.filter import FilterConfig, filter_all
+from matching.lowbarrier import classify
 from matching.profile import load_profiles
 
 
@@ -52,9 +54,18 @@ def cmd_filter(args) -> int:
     This is Annex B Pass 2 (filter tuning): the reject histogram is how you
     tell an over-broad keyword list from an over-narrow one.
     """
+    # A malformed profile must not silently narrow the recall gate: if ANY
+    # profile fails to load, this is a hard stop, not a warning. Proceeding
+    # on partial profile data would drop notices only the broken member
+    # could have won, and those notices are never judged and never seen
+    # again.
     profiles, errors = load_profiles(pathlib.Path(args.profiles), collect_errors=True)
-    for err in errors:
-        print(f"WARNING: skipping unreadable profile: {err}", file=sys.stderr)
+    if errors:
+        print("ERROR: one or more profiles failed to load; refusing to filter with "
+              "partial profile data:", file=sys.stderr)
+        for err in errors:
+            print(f"  {err}", file=sys.stderr)
+        return 1
     if not profiles:
         print("ERROR: no usable profiles found", file=sys.stderr)
         return 1
@@ -66,13 +77,26 @@ def cmd_filter(args) -> int:
         except yaml.YAMLError as exc:
             print(f"ERROR: could not parse config file {args.config}: {exc}", file=sys.stderr)
             return 1
+
+    active_profiles = cfg_data.get("active_profiles") or []
+    if active_profiles:
+        by_id = {p.member_id: p for p in profiles}
+        missing = [pid for pid in active_profiles if pid not in by_id]
+        if missing:
+            print(
+                f"ERROR: active_profiles names unknown member(s): {', '.join(missing)}",
+                file=sys.stderr,
+            )
+            return 1
+        profiles = [by_id[pid] for pid in active_profiles]
+
     config = FilterConfig(
         min_turnaround_days=cfg_data.get("min_turnaround_days", 5),
         now=datetime.datetime.now(datetime.timezone.utc),
     )
 
     notices = list(NoticeStore(pathlib.Path(args.notices)).all())
-    results = filter_all(notices, profiles, [], config)
+    results = filter_all(notices, profiles, config)
     counts = collections.Counter(r.reason for r in results.values())
     passed = counts.get("pass", 0)
 
@@ -83,6 +107,35 @@ def cmd_filter(args) -> int:
             print(f"  dropped [{reason}]: {count}")
     if len(notices):
         print(f"pass rate: {passed / len(notices):.1%}")
+
+    if args.json:
+        records = []
+        for n in notices:
+            result = results[n.reference]
+            if not result.passed and not args.include_rejected:
+                continue
+            lb = classify(n)
+            records.append({
+                "reference": n.reference,
+                "title": n.title,
+                "entity": n.entity,
+                "closing": n.closing.isoformat() if n.closing else None,
+                "needs_rematch": n.needs_rematch,
+                "passed": result.passed,
+                "reason": result.reason,
+                "matched_codes": result.matched_codes,
+                "matched_keywords": result.matched_keywords,
+                "matched_service_lines": result.matched_service_lines,
+                "low_barrier": {
+                    "kind": lb.kind,
+                    "confidence": lb.confidence,
+                    "is_low_barrier": lb.is_low_barrier,
+                },
+            })
+        out_path = pathlib.Path(args.json)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(json.dumps(records, indent=2, ensure_ascii=False), encoding="utf-8")
+
     return 0
 
 
@@ -102,6 +155,11 @@ def main(argv: list[str] | None = None) -> int:
     p_filter = sub.add_parser("filter", help="run stage 1 and report the outcome")
     p_filter.add_argument("--profiles", default="profiles")
     p_filter.add_argument("--config", default="config.yml")
+    p_filter.add_argument("--json", help="write stage-1 results (passing notices) to this path")
+    p_filter.add_argument(
+        "--include-rejected", action="store_true",
+        help="include rejected notices in --json output (Annex B recall audit)",
+    )
     p_filter.set_defaults(func=cmd_filter)
 
     args = parser.parse_args(argv)

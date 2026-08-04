@@ -56,6 +56,38 @@ def test_service_line_with_no_keywords_and_no_codes_is_rejected(tmp_path):
         load_profile(write(tmp_path, bad))
 
 
+def test_naics_only_service_line_is_rejected(tmp_path):
+    # naics is retained as documentation but the feed carries no NAICS
+    # column, so a NAICS-only line can never match. It must be rejected at
+    # load time with a message explaining why, not silently pass validation
+    # and then match nothing forever.
+    bad = {**MINIMAL, "service_lines": [
+        {"label": "NAICS only", "unspsc": [], "gsin": [], "naics": ["541512"], "keywords": []}
+    ]}
+    with pytest.raises(ProfileError, match="NAICS"):
+        load_profile(write(tmp_path, bad))
+
+
+def test_null_service_lines_raises_profile_error(tmp_path):
+    bad = {**MINIMAL, "service_lines": None}
+    with pytest.raises(ProfileError, match="service_lines"):
+        load_profile(write(tmp_path, bad))
+
+
+def test_load_team_wraps_invalid_yaml(tmp_path):
+    team_file = tmp_path / "bad_team.yml"
+    team_file.write_text("team_id: [unclosed", encoding="utf-8")
+    with pytest.raises(ProfileError):
+        load_team(team_file, [])
+
+
+def test_load_team_wraps_missing_field(tmp_path):
+    team_file = tmp_path / "incomplete_team.yml"
+    team_file.write_text(yaml.safe_dump({"team_id": "x"}), encoding="utf-8")
+    with pytest.raises(ProfileError, match="members"):
+        load_team(team_file, [])
+
+
 def test_empty_regions_list_is_rejected(tmp_path):
     # An empty regions list is not a valid configuration -- it must fail loudly
     # at load time rather than be silently reinterpreted at match time.
