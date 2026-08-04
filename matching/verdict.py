@@ -44,32 +44,37 @@ class Verdict:
     matches_date: str
 
 
-def _parse_verdict(record: dict, matches_date: str) -> Verdict:
+def _parse_verdict(record: dict, matches_date: str, verdicts_path: pathlib.Path) -> Verdict:
     lb = record.get("low_barrier") or {}
-    return Verdict(
-        reference=record["reference"],
-        subject=record["subject"],
-        subject_kind=record.get("subject_kind", "profile"),
-        score=record.get("score", 0),
-        recommendation=record.get("recommendation", ""),
-        low_barrier=LowBarrier(
-            is_low_barrier=bool(lb.get("is_low_barrier", False)),
-            kind=lb.get("kind", "none"),
-        ),
-        requirements=[
-            Requirement(
-                text=r["text"],
-                kind=r.get("kind", "mandatory"),
-                status=r.get("status", "unclear"),
-                covered_by=r.get("covered_by"),
-                note=r.get("note", ""),
-            )
-            for r in record.get("requirements") or []
-        ],
-        reasoning=record.get("reasoning", ""),
-        deal_breakers=list(record.get("deal_breakers") or []),
-        matches_date=matches_date,
-    )
+    try:
+        return Verdict(
+            reference=record["reference"],
+            subject=record["subject"],
+            subject_kind=record.get("subject_kind", "profile"),
+            score=record.get("score", 0),
+            recommendation=record.get("recommendation", ""),
+            low_barrier=LowBarrier(
+                is_low_barrier=bool(lb.get("is_low_barrier", False)),
+                kind=lb.get("kind", "none"),
+            ),
+            requirements=[
+                Requirement(
+                    text=r["text"],
+                    kind=r.get("kind", "mandatory"),
+                    status=r.get("status", "unclear"),
+                    covered_by=r.get("covered_by"),
+                    note=r.get("note", ""),
+                )
+                for r in record.get("requirements") or []
+            ],
+            reasoning=record.get("reasoning", ""),
+            deal_breakers=list(record.get("deal_breakers") or []),
+            matches_date=matches_date,
+        )
+    except KeyError as exc:
+        raise VerdictError(
+            f"{verdicts_path}: verdict record missing required field {exc}"
+        ) from exc
 
 
 def load_verdicts(matches_root: pathlib.Path, reference: str) -> list[Verdict]:
@@ -84,7 +89,7 @@ def load_verdicts(matches_root: pathlib.Path, reference: str) -> list[Verdict]:
             raise VerdictError(f"{verdicts_path}: could not read verdicts: {exc}") from exc
         for record in records:
             if record.get("reference") == reference:
-                found.append(_parse_verdict(record, date))
+                found.append(_parse_verdict(record, date, verdicts_path))
     return found
 
 

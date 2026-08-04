@@ -99,3 +99,11 @@ def test_load_verdict_raises_a_clear_error_on_malformed_json(tmp_path):
     (d / "verdicts.json").write_text("not json", encoding="utf-8")
     with pytest.raises(VerdictError, match="could not read verdicts"):
         load_verdict(tmp_path, REFERENCE)
+
+
+def test_load_verdict_raises_verdict_error_on_record_missing_required_field(tmp_path):
+    record = make_record()
+    del record["subject"]
+    write_verdicts(tmp_path, "2026-08-01", [record])
+    with pytest.raises(VerdictError, match="missing required field"):
+        load_verdict(tmp_path, REFERENCE)
