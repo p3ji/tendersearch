@@ -19,7 +19,27 @@ FEEDS = {
 
 # If these are absent the file is not a tender feed. Fail loudly rather than
 # writing an empty digest that reads as "nothing today".
-REQUIRED_COLUMNS = (F.COL_REF, F.COL_TITLE, F.COL_CLOSING, F.COL_STATUS)
+#
+# The matching-critical columns are included deliberately: if any of these
+# get silently renamed upstream, row.get() returns None, stage 1 loses its
+# codes/text and rejects every notice as "no-code-or-keyword-match", and
+# `canadabuys filter` prints "passed: 0" and exits 0 -- a silent, successful
+# recall failure. Guarding them here turns that into a loud ingest failure.
+REQUIRED_COLUMNS = (
+    F.COL_REF,
+    F.COL_TITLE,
+    F.COL_CLOSING,
+    F.COL_STATUS,
+    F.COL_UNSPSC,
+    F.COL_GSIN,
+    F.COL_UNSPSC_DESC,
+    F.COL_GSIN_DESC,
+    F.COL_REGIONS_DELIVERY,
+    F.COL_DESCRIPTION,
+    F.COL_SELECTION,
+    F.COL_NOTICE_TYPE,
+    F.COL_PROC_METHOD,
+)
 
 # The feed rejects non-browser User-Agents with a bare 403. A descriptive
 # UA (e.g. "tendersearch/1.0 ...") is also rejected; only a browser-shaped

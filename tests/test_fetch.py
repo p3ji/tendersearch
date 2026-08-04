@@ -1,3 +1,5 @@
+import csv
+import io
 import pathlib
 import pytest
 from canadabuys.fetch import parse_csv_bytes, ingest, FEEDS
@@ -52,3 +54,35 @@ def test_malformed_csv_raises_rather_than_writing_nothing(tmp_path):
 def test_empty_feed_raises(tmp_path):
     with pytest.raises(ValueError):
         ingest(b"", NoticeStore(tmp_path), "open", NOW)
+
+
+@pytest.mark.parametrize("column", [
+    "unspsc",
+    "gsin-nibs",
+    "unspscDescription-eng",
+    "gsinDescription-nibsDescription-eng",
+    "regionsOfDelivery-regionsLivraison-eng",
+    "tenderDescription-descriptionAppelOffres-eng",
+    "selectionCriteria-criteresSelection-eng",
+    "noticeType-avisType-eng",
+    "procurementMethod-methodeApprovisionnement-eng",
+])
+def test_missing_matching_critical_column_raises(raw, column):
+    # If CanadaBuys renames any of these, row.get() silently returns None,
+    # every notice loses its codes/text, stage 1 rejects everything, and
+    # `canadabuys filter` prints "passed: 0" and exits 0 -- the exact
+    # "quiet day" failure the design forbids. This must fail loudly instead.
+    text = raw.decode("utf-8-sig")
+    reader = csv.DictReader(io.StringIO(text))
+    fieldnames = [f for f in reader.fieldnames if f != column]
+    assert len(fieldnames) == len(reader.fieldnames) - 1, (
+        f"fixture must contain {column!r} for this test to be meaningful"
+    )
+    rows = list(reader)
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=fieldnames, extrasaction="ignore")
+    writer.writeheader()
+    writer.writerows(rows)
+    mutated = buf.getvalue().encode("utf-8-sig")
+    with pytest.raises(ValueError, match=column):
+        parse_csv_bytes(mutated, "open", NOW)
