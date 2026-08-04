@@ -87,6 +87,11 @@ def load_verdicts(matches_root: pathlib.Path, reference: str) -> list[Verdict]:
             records = json.loads(verdicts_path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError) as exc:
             raise VerdictError(f"{verdicts_path}: could not read verdicts: {exc}") from exc
+        if not isinstance(records, list):
+            raise VerdictError(
+                f"{verdicts_path}: expected a JSON array at the top level, "
+                f"got {type(records).__name__}"
+            )
         for record in records:
             if record.get("reference") == reference:
                 found.append(_parse_verdict(record, date, verdicts_path))

@@ -7,6 +7,7 @@ Finds and triages Canadian federal tender opportunities for a small consulting g
 - `canadabuys/` — feed ingestion. All network and file I/O. **No judgment logic.**
 - `matching/` — stage-1 filter. Pure functions, no I/O, no LLM.
 - `.claude/skills/tender-matcher/` — stage-2 rubric (markdown, human-edited).
+- `.claude/skills/tender-assistant/` — `/apply` drafting style and structure (markdown, human-edited).
 - `docs/superpowers/specs/` — the design. Read before changing behaviour.
 
 ## Non-negotiables
@@ -33,6 +34,14 @@ Finds and triages Canadian federal tender opportunities for a small consulting g
     /team <name>        # declare a team
 
 Scheduling: see `docs/scheduling.md`.
+
+## Per-notice, after a bid/no-bid decision
+
+    /apply <notice-id>  # assemble a bid draft in bids/<notice-id>/ from an existing verdict
+
+Not part of the daily scheduled run — run it by hand for a specific notice once `/rank` has
+already produced a verdict for it. Uses the `tender-assistant` skill for drafting style and
+structure. `/outcome` (recording the decision and result) is specified but not yet built.
 
 ## Annex B archive passes
 

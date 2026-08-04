@@ -27,7 +27,10 @@ empty lists mean all). Skip any notice that already has a verdict in a previous
 `matches/` directory **unless** its `needs_rematch` flag is true — an amendment
 may have changed the criteria or the deadline.
 
-Write all verdicts to `matches/<today>/verdicts.json`.
+Write all verdicts to `matches/<today>/verdicts.json` as a JSON array of verdict records —
+`[{...}, {...}, ...]` at the top level, not wrapped in an object (e.g. not `{"verdicts": [...]}`).
+`matching/verdict.py` reads this file and requires the top level to be a list; anything else
+raises a `VerdictError` naming the file and the type it found.
 
 After a notice's verdict is durably written to `matches/<today>/verdicts.json`,
 call `NoticeStore.clear_rematch(reference)` for that notice. Do this **after**

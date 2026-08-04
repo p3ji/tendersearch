@@ -107,3 +107,27 @@ def test_load_verdict_raises_verdict_error_on_record_missing_required_field(tmp_
     write_verdicts(tmp_path, "2026-08-01", [record])
     with pytest.raises(VerdictError, match="missing required field"):
         load_verdict(tmp_path, REFERENCE)
+
+
+def test_load_verdicts_raises_verdict_error_when_top_level_is_not_a_list(tmp_path):
+    # An LLM writer could wrap the array in an object (e.g. {"verdicts": [...]})
+    # -- this must raise a designed VerdictError, not a raw AttributeError from
+    # iterating a dict's keys as if they were records.
+    d = tmp_path / "2026-08-01"
+    d.mkdir(parents=True)
+    (d / "verdicts.json").write_text(
+        json.dumps({"verdicts": [make_record()]}), encoding="utf-8"
+    )
+    with pytest.raises(VerdictError, match="expected a JSON array"):
+        load_verdict(tmp_path, REFERENCE)
+
+
+def test_load_verdicts_raises_verdict_error_naming_file_and_type_for_non_list_top_level(tmp_path):
+    d = tmp_path / "2026-08-01"
+    d.mkdir(parents=True)
+    verdicts_path = d / "verdicts.json"
+    verdicts_path.write_text(json.dumps({"verdicts": []}), encoding="utf-8")
+    with pytest.raises(VerdictError) as excinfo:
+        load_verdict(tmp_path, REFERENCE)
+    assert str(verdicts_path) in str(excinfo.value)
+    assert "dict" in str(excinfo.value)

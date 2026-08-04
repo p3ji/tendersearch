@@ -33,7 +33,7 @@ def make_notice(**overrides) -> Notice:
     return Notice.from_csv_row(row, "open", NOW)
 
 
-def write_profile(root, member_id, evidence=None, **overrides):
+def write_profile(root, member_id, evidence=None, past_performance=None, **overrides):
     data = {
         "member_id": member_id,
         "name": member_id.title(),
@@ -43,6 +43,7 @@ def write_profile(root, member_id, evidence=None, **overrides):
              "keywords": ["data pipeline"]}
         ],
         "evidence": evidence or {},
+        "past_performance": past_performance if past_performance is not None else [],
         **overrides,
     }
     d = root / member_id
@@ -200,9 +201,10 @@ def test_apply_leaves_evidence_empty_when_requirement_is_a_gap(env):
     )
     assert scaffold["requirements"][0]["evidence"] == {}
     assert scaffold["requirements"][0]["status"] == "gap"
+    assert scaffold["members"] == {}
 
 
-def test_apply_sanitizes_notice_id_for_the_bids_directory_name(tmp_path):
+def test_apply_sanitizes_notice_id_for_the_bids_directory_name(tmp_path, capsys):
     notices_dir = tmp_path / "notices"
     profiles_dir = tmp_path / "profiles"
     matches_dir = tmp_path / "matches"
@@ -218,4 +220,67 @@ def test_apply_sanitizes_notice_id_for_the_bids_directory_name(tmp_path):
         "--bids", str(bids_dir),
     ])
     assert rc == 0
-    assert (bids_dir / safe_filename(ref) / "scaffold.json").exists()
+    expected_dir = bids_dir / safe_filename(ref)
+    assert (expected_dir / "scaffold.json").exists()
+    # Finding 2: the printed output must state the actual (sanitized) bid
+    # directory unambiguously -- a reader must not need to reconstruct
+    # bids/<notice-id>/ from the raw reference, which would go wrong for a
+    # reference containing ":" like this one.
+    out = capsys.readouterr().out
+    assert f"bid directory: {expected_dir}" in out
+    assert str(bids_dir / ref) not in out
+
+
+def test_apply_scaffold_includes_past_performance_for_covering_members(env):
+    write_profile(
+        pathlib.Path(env["profiles"]), "alex",
+        evidence={"resume": "evidence/alex-resume.pdf"},
+        past_performance=[
+            {"client": "Acme Corp", "value": 50000, "start": "2024-01-01",
+             "end": "2024-06-30", "description": "Built a reporting pipeline.",
+             "reference": {"name": "Sam Ref", "email": "sam@example.com"}},
+        ],
+    )
+    rc = run_apply(env)
+    assert rc == 0
+    scaffold = json.loads(
+        (pathlib.Path(env["bids"]) / REFERENCE / "scaffold.json").read_text(encoding="utf-8")
+    )
+    assert "members" in scaffold
+    assert set(scaffold["members"].keys()) == {"alex"}
+    alex = scaffold["members"]["alex"]
+    assert alex["name"] == "Alex"
+    assert alex["past_performance"] == [
+        {"client": "Acme Corp", "value": 50000, "start": "2024-01-01",
+         "end": "2024-06-30", "description": "Built a reporting pipeline.",
+         "reference": {"name": "Sam Ref", "email": "sam@example.com"}},
+    ]
+    assert alex["evidence"]["resume"] == str(
+        pathlib.Path(env["profiles"]) / "alex" / "evidence" / "alex-resume.pdf"
+    )
+    # existing per-requirement evidence key must be unchanged
+    assert scaffold["requirements"][0]["evidence"]["resume"] == alex["evidence"]["resume"]
+
+
+def test_apply_scaffold_omits_members_not_covering_any_requirement(env):
+    # priya has a profile but covers nothing on this notice -- must not
+    # appear in the scaffold's members block.
+    write_profile(pathlib.Path(env["profiles"]), "priya")
+    rc = run_apply(env)
+    assert rc == 0
+    scaffold = json.loads(
+        (pathlib.Path(env["bids"]) / REFERENCE / "scaffold.json").read_text(encoding="utf-8")
+    )
+    assert set(scaffold["members"].keys()) == {"alex"}
+
+
+def test_apply_scaffold_allows_empty_past_performance(env):
+    # alex's profile (from the env fixture) has no past_performance set --
+    # this must not be an error, and must show up as an empty list, not be
+    # silently dropped from the members block.
+    rc = run_apply(env)
+    assert rc == 0
+    scaffold = json.loads(
+        (pathlib.Path(env["bids"]) / REFERENCE / "scaffold.json").read_text(encoding="utf-8")
+    )
+    assert scaffold["members"]["alex"]["past_performance"] == []

@@ -183,8 +183,15 @@ def cmd_apply(args) -> int:
         return 1
     by_id = {p.member_id: p for p in profiles}
 
+    def _resolve_evidence(member) -> dict:
+        return {
+            label: str(profiles_root / member.member_id / rel_path)
+            for label, rel_path in member.evidence.items()
+        }
+
     requirements = []
     missing_members = set()
+    covering_member_ids = set()
     for req in verdict.requirements:
         evidence = {}
         if req.covered_by:
@@ -192,10 +199,8 @@ def cmd_apply(args) -> int:
             if member is None:
                 missing_members.add(req.covered_by)
             else:
-                evidence = {
-                    label: str(profiles_root / member.member_id / rel_path)
-                    for label, rel_path in member.evidence.items()
-                }
+                covering_member_ids.add(member.member_id)
+                evidence = _resolve_evidence(member)
         requirements.append({
             "text": req.text,
             "kind": req.kind,
@@ -211,6 +216,20 @@ def cmd_apply(args) -> int:
             file=sys.stderr,
         )
         return 1
+
+    # Structured past-performance records for each covering member, keyed by
+    # member id so a member covering several requirements isn't duplicated
+    # onto every row. Only members actually cited by some requirement's
+    # covered_by are included. An empty past_performance list is normal (thin
+    # procurement history by design) and is not an error.
+    members = {
+        member_id: {
+            "name": by_id[member_id].name,
+            "past_performance": by_id[member_id].past_performance,
+            "evidence": _resolve_evidence(by_id[member_id]),
+        }
+        for member_id in sorted(covering_member_ids)
+    }
 
     scaffold = {
         "notice": {
@@ -238,11 +257,19 @@ def cmd_apply(args) -> int:
             "matches_date": verdict.matches_date,
         },
         "requirements": requirements,
+        "members": members,
     }
 
-    out_path = pathlib.Path(args.bids) / safe_filename(args.notice_id) / "scaffold.json"
+    bid_dir = pathlib.Path(args.bids) / safe_filename(args.notice_id)
+    out_path = bid_dir / "scaffold.json"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(scaffold, indent=2, ensure_ascii=False), encoding="utf-8")
+    # The notice id is sanitized for the directory name (colons and other
+    # filesystem-unsafe characters -- see safe_filename), so state the
+    # resolved directory explicitly rather than let a reader reconstruct
+    # bids/<notice-id>/ from the raw reference, which would diverge on
+    # references like "SSC-26-00034400:T".
+    print(f"bid directory: {bid_dir}")
     print(f"wrote {out_path}")
     return 0
 

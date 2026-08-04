@@ -124,6 +124,7 @@ Runs both stages and writes `matches/<today>/digest.md` plus `verdicts.json`.
 | `/rank` | Filter, judge, write today's digest. This is what the daily schedule calls. |
 | `/profile <member>` | Build or update a member profile from evidence plus interview. |
 | `/team <name>` | Declare or edit a team. |
+| `/apply <notice-id>` | Assemble a bid draft for a notice that already has a verdict from `/rank`. Run per-notice, not part of the daily schedule. |
 
 CLI, underneath:
 
@@ -194,7 +195,8 @@ tools/             Offline archive analysis.
 tests/             126 tests. Fixtures are real feed data; nothing hits the network.
 
 .claude/skills/tender-matcher/     The stage-2 rubric. Markdown, meant to be edited.
-.claude/commands/                  /scrape /rank /profile /team
+.claude/skills/tender-assistant/   Bid-drafting style and structure for /apply.
+.claude/commands/                  /scrape /rank /profile /team /apply
 .agents/skills/canadabuys-search/  Portable portal skill + feed reference
 
 profiles/<member>/     GIT-IGNORED. profile.yml + evidence/ (resumes, past work)
