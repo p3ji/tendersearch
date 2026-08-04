@@ -99,11 +99,16 @@ def filter_notice(
     )
 
 
-def filter_all(notices, profiles, teams, config: FilterConfig) -> dict[str, FilterResult]:
+def filter_all(notices, profiles, config: FilterConfig) -> dict[str, FilterResult]:
     """Filter each notice against the union of all active profiles.
 
     A notice passes if ANY profile could want it; per-subject scoring is
     stage 2's job, not stage 1's.
+
+    Teams are deliberately NOT a parameter here: teams are a stage-2 concept
+    (the rubric judges against profiles AND teams). Stage 1 already unions
+    across all profiles, so a team -- itself just a union of member profiles
+    -- adds nothing to this gate.
     """
     all_lines = [sl for p in profiles for sl in p.service_lines]
     all_regions = sorted({r for p in profiles for r in p.regions})

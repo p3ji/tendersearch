@@ -182,3 +182,30 @@ def test_all_returns_every_saved_notice_including_colon_references(store):
     for r in refs:
         store.save(make(**{"referenceNumber-numeroReference": r}))
     assert len(list(store.all())) == len(refs)
+
+
+def test_sanitized_reference_does_not_collide_with_a_literal_match(store):
+    # "ABC:T" sanitizes to "ABC_T" -- the same string as the literal
+    # reference "ABC_T". A naive sanitizer would silently overwrite one with
+    # the other. Both must round-trip independently.
+    a = make(**{"referenceNumber-numeroReference": "ABC:T"})
+    b = make(**{"referenceNumber-numeroReference": "ABC_T"})
+    store.save(a)
+    store.save(b)
+
+    all_refs = {n.reference for n in store.all()}
+    assert all_refs == {"ABC:T", "ABC_T"}
+    assert store.load("ABC:T").reference == "ABC:T"
+    assert store.load("ABC_T").reference == "ABC_T"
+
+
+def test_clear_rematch_clears_the_flag_and_persists(store):
+    n = make()
+    store.upsert(n, T0)
+    assert store.load(n.reference).needs_rematch is True
+    store.clear_rematch(n.reference)
+    assert store.load(n.reference).needs_rematch is False
+
+
+def test_clear_rematch_on_unknown_reference_is_a_noop(store):
+    store.clear_rematch("does-not-exist")  # must not raise

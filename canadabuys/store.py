@@ -8,6 +8,7 @@ keeping a stale verdict after criteria or deadlines move is a correctness bug.
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import json
 import pathlib
 from typing import Iterator
@@ -25,7 +26,16 @@ _INVALID_FS_CHARS = '<>:"/\\|?*'
 
 
 def _safe_filename(reference: str) -> str:
-    return "".join("_" if c in _INVALID_FS_CHARS else c for c in reference)
+    sanitized = "".join("_" if c in _INVALID_FS_CHARS else c for c in reference)
+    if sanitized == reference:
+        return sanitized
+    # Sanitization changed the string, e.g. "ABC:T" -> "ABC_T", which could
+    # collide with a genuinely different reference like "ABC_T". Append a
+    # short deterministic hash of the original so distinct references never
+    # land on the same file. References needing no sanitization are
+    # unaffected, so existing stored files still resolve.
+    digest = hashlib.sha1(reference.encode("utf-8")).hexdigest()[:8]
+    return f"{sanitized}_{digest}"
 
 
 @dataclasses.dataclass
@@ -90,6 +100,21 @@ class NoticeStore:
         incoming.needs_rematch = existing.needs_rematch or bool(changed)
         self.save(incoming)
         return UpsertResult(incoming.reference, "amended", bool(changed), changed)
+
+    def clear_rematch(self, reference: str) -> None:
+        """Clear needs_rematch after a verdict has been written for this notice.
+
+        Call this only after the verdict is durably written (e.g. to
+        matches/<today>/verdicts.json) -- clearing first and getting
+        interrupted would silently lose the flag and the notice would never
+        be re-judged despite the amendment.
+        """
+        notice = self.load(reference)
+        if notice is None:
+            return
+        if notice.needs_rematch:
+            notice.needs_rematch = False
+            self.save(notice)
 
     def all(self) -> Iterator[Notice]:
         for path in sorted(self.root.glob("*/*.json")):

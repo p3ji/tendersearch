@@ -4,9 +4,10 @@ import pytest
 from canadabuys.notice import Notice
 from matching.profile import ServiceLine
 from matching.filter import (
-    FilterConfig, filter_notice,
+    FilterConfig, filter_notice, filter_all,
     REASON_CLOSED, REASON_TOO_SOON, REASON_REGION, REASON_NO_SIGNAL, REASON_PASS,
 )
+from matching.profile import Profile
 
 NOW = datetime.datetime(2026, 8, 3, 12, 0, tzinfo=datetime.timezone.utc)
 CONFIG = FilterConfig(min_turnaround_days=5, now=NOW)
@@ -190,6 +191,14 @@ def test_empty_service_lines_rejects_everything_rather_than_crashing():
     r = filter_notice(notice(), [], REGIONS, CONFIG)
     assert not r.passed
     assert r.reason == REASON_NO_SIGNAL
+
+
+def test_filter_all_takes_no_teams_parameter_and_unions_all_profiles():
+    # teams are deliberately a stage-2 concept; filter_all unions across all
+    # profiles instead. This is a regression test for its signature.
+    profile = Profile(member_id="alex", name="Alex", regions=["Ontario"], service_lines=[LINE])
+    results = filter_all([notice()], [profile], CONFIG)
+    assert results[notice().reference].passed
 
 
 def test_empty_profile_regions_passes_rather_than_rejecting():

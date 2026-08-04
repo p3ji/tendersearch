@@ -44,7 +44,7 @@ def main(argv: list[str]) -> int:
         now=datetime.datetime(2000, 1, 1, tzinfo=datetime.timezone.utc),
         ignore_status=True,
     )
-    results = filter_all(notices, profiles, [], config)
+    results = filter_all(notices, profiles, config)
     survivors = [n for n in notices if results[n.reference].passed]
     print(f"\n--- Pass 2: filter reach ---")
     print(f"survivors: {len(survivors)} ({len(survivors)/max(len(notices),1):.1%})")

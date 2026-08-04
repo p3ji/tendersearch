@@ -3,6 +3,7 @@ __pycache__/
 .pytest_cache/
 .venv/
 venv/
+*.egg-info/
 
 # Real data — never commit. Contains members' resumes and client names.
 profiles/*
