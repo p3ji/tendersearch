@@ -49,7 +49,7 @@ The matching engine is built and tested. The application assistant is not.
 
 | Piece | State |
 |---|---|
-| Feed ingestion, amendment handling | Built — 126 tests, all offline |
+| Feed ingestion, amendment handling | Built — fully tested, all offline |
 | Stage-1 filter, low-barrier classification | Built |
 | Stage-2 rubric + `/rank` digest | Built |
 | Member profiles, teams | Built |
@@ -71,7 +71,7 @@ The matching engine is built and tested. The application assistant is not.
 python -m venv .venv
 source .venv/Scripts/activate      # Windows Git Bash; use .venv/bin/activate on macOS/Linux
 pip install -e ".[dev]"
-pytest                             # 126 tests, no network
+pytest                             # full suite, no network
 ```
 
 ### 2. Pull the notices
@@ -192,7 +192,7 @@ against observable volume, nothing more. The full methodology is Annex B of the
 canadabuys/        Feed ingestion. All network and file I/O. No judgment logic.
 matching/          Stage-1 filter, profiles, teams, low-barrier. Pure functions.
 tools/             Offline archive analysis.
-tests/             126 tests. Fixtures are real feed data; nothing hits the network.
+tests/             Full suite. Fixtures are real feed data; nothing hits the network.
 
 .claude/skills/tender-matcher/     The stage-2 rubric. Markdown, meant to be edited.
 .claude/skills/tender-assistant/   Bid-drafting style and structure for /apply.
