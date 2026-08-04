@@ -24,3 +24,23 @@ Finds and triages Canadian federal tender opportunities for a small consulting g
 
     canadabuys fetch     # pull open notices into notices/
     pytest               # full suite, offline
+
+## Daily workflow
+
+    /scrape     # pull new notices (canadabuys fetch)
+    /rank       # filter, judge, write matches/<date>/digest.md
+    /profile <member>   # build or update a member profile
+    /team <name>        # declare a team
+
+Scheduling: see `docs/scheduling.md`.
+
+## Annex B archive passes
+
+Offline analyses over historical notices, from the spec's Annex B. Download an
+archive into `archives/` (git-ignored), then:
+
+    python tools/archive_report.py archives/<file>.csv
+
+Covers Pass 2 (filter reach and volume) and Pass 5 (market map). Passes 1, 3,
+and 4 are LLM-driven — Pass 1 runs inside `/profile`; Passes 3 and 4 are manual
+reads described in the spec.
