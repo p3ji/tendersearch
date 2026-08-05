@@ -73,7 +73,7 @@ functions — no I/O, no LLM. Judgment lives in markdown skills you edit, not in
 
 ## Status
 
-The matching engine is built and tested. The application assistant is not.
+The matching engine and the application assistant are built and tested. Outcome recording is not.
 
 | Piece | State |
 |---|---|
@@ -89,18 +89,40 @@ The matching engine is built and tested. The application assistant is not.
 
 - [Claude Code](https://claude.com/claude-code)
 - Python 3.11+
+- Git
 - Nothing else. Dependencies are `requests`, `PyYAML`, and `pytest`.
 
 ## Quick start
 
+Steps 1 and 2 are shell commands. Steps 3 to 5 are Claude Code slash commands —
+open Claude Code in this folder and type them at its prompt, not in a terminal.
+
 ### 1. Install
 
 ```bash
+git clone https://github.com/p3ji/tendersearch.git
+cd tendersearch
 python -m venv .venv
-source .venv/Scripts/activate      # Windows Git Bash; use .venv/bin/activate on macOS/Linux
+```
+
+Activate it, using the line for your shell:
+
+```bash
+source .venv/Scripts/activate      # Windows Git Bash
+.venv\Scripts\Activate.ps1         # Windows PowerShell
+source .venv/bin/activate          # macOS / Linux
+```
+
+If PowerShell refuses to run the activate script, allow it for that window only:
+`Set-ExecutionPolicy -Scope Process RemoteSigned`.
+
+```bash
 pip install -e ".[dev]"
 pytest                             # full suite, no network
 ```
+
+**Re-run the activate line in every new terminal session.** Without it, `canadabuys`
+is not on your PATH and `/scrape` and `/rank` will fail.
 
 ### 2. Pull the notices
 
@@ -142,7 +164,17 @@ time and never copied into the team file, so editing one profile propagates ever
 /rank
 ```
 
-Runs both stages and writes `matches/<today>/digest.md` plus `verdicts.json`.
+Requires `/scrape` to have run at least once. Runs both stages and writes
+`matches/<today>/digest.md` plus `verdicts.json`.
+
+Stage 2 judges every notice that survives stage 1 — currently around 85 of 920.
+Expect several minutes and a meaningful chunk of your Claude Code usage. Stage 1
+alone is free and instant, so if you only want to sanity-check a profile, run
+`canadabuys filter --profiles profiles` in the terminal instead.
+
+A thinner digest than you expected is usually `config.yml`, not the rubric:
+`min_turnaround_days` drops everything closing sooner than that many days out,
+which is the second-largest reject bucket on a typical day.
 
 ## Commands
 
@@ -154,12 +186,17 @@ Runs both stages and writes `matches/<today>/digest.md` plus `verdicts.json`.
 | `/team <name>` | Declare or edit a team. |
 | `/apply <notice-id>` | Assemble a bid draft for a notice that already has a verdict from `/rank`. Run per-notice, not part of the daily schedule. |
 
+If more than one profile or team has a verdict for the same notice, `/apply` needs
+to be told which one to draft for — pass `--profile <id>` or `--team <id>` (one or
+the other, never both).
+
 CLI, underneath:
 
 ```bash
 canadabuys fetch [--feed open|new] [--file PATH]
 canadabuys stats
-canadabuys filter --profiles profiles [--json PATH] [--include-rejected]
+canadabuys filter --profiles profiles [--config config.yml] [--json PATH] [--include-rejected]
+canadabuys apply <notice-id> [--profile ID | --team ID]
 canadabuys --notices DIR fetch          # note: --notices goes BEFORE the subcommand
 ```
 
@@ -231,6 +268,9 @@ profiles/<member>/     GIT-IGNORED. profile.yml + evidence/ (resumes, past work)
 teams/<name>.yml       GIT-IGNORED
 notices/               Raw notices, regenerable
 matches/<date>/        Verdicts and digests, regenerable
+bids/<notice-id>/      GIT-IGNORED. Your bid drafts — back these up yourself.
+archives/              GIT-IGNORED. Downloaded fiscal-year CSVs for offline tuning.
+outcomes.jsonl         GIT-IGNORED. Recorded decisions and results (not yet built).
 config.yml             Thresholds, active profiles
 ```
 
@@ -243,6 +283,10 @@ deliberate: a matcher bug is fixed by re-running, never by hand-repair.
 resumes and, once you record past performance, real client names. Only
 [`profiles/_example/profile.yml`](profiles/_example/profile.yml) is committed, as schema
 documentation with fake data.
+
+`bids/` is git-ignored for the same reason, with one consequence worth stating plainly:
+it is the only directory holding work that cannot be regenerated, and git is not backing
+it up. Copy it somewhere you trust.
 
 ## Customization
 

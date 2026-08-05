@@ -13,9 +13,8 @@ Set it up with the `schedule` skill in Claude Code:
 
 Notify on:
 - a new notice at or above `notify_score_threshold`
-- **any** amended notice with an existing verdict — the criteria or deadline
-  may have moved under a decision already made
-- **any** amended notices whose `needs_rematch` flag was set, because amendments can change deadlines or criteria after a bid/no-bid decision
+- **any** amended notice with an existing verdict (its `needs_rematch` flag is
+  set) — the criteria or deadline may have moved under a decision already made
 - a tracked bid whose deadline is within a week
 
 Do not notify on an ordinary quiet day. The digest is written regardless and can
