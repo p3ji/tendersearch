@@ -29,8 +29,8 @@ you control, and writes a digest telling you what to bid on and what to skip.
   |                    |                            |
   v                    v                            v
 Pull open          Stage 1: code filter         Assemble a draft
-notices from       (deterministic, no LLM)      response from the
-CanadaBuys              |                       verdict's gap report
+notices from       (deterministic, no LLM)      response, after
+CanadaBuys              |                       `enrich` fetches docs
   |                     v                            |
   v                Stage 2: LLM judgment             v
 notices/           against your rubric          bids/<notice-id>/
@@ -43,9 +43,19 @@ notices/           against your rubric          bids/<notice-id>/
 ```
 
 The thing it is actually optimised for is **not bidding**. A good no-bid is the highest-value
-output here — federal proposals cost weeks, and most of them you cannot win. The gap report
-("we meet 6 of 8 mandatories; Alex covers criterion 3; nobody holds the clearance") is the
-product.
+output here — federal proposals cost weeks, and most of them you cannot win.
+
+So what `/rank` produces is **eligibility triage with a named blocker**: not just a score, but
+the specific reason — *"restricted to named TBIPS supply-arrangement holders"*, *"requires an
+operating e-commerce retail business"*, *"wrong specialty: geomatics"*. On a real run it settled
+**74 of 85 notices that way, from the feed alone**, and flagged the remaining 11 as needing a
+closer look rather than guessing.
+
+The fuller gap report — *we meet 6 of 8 mandatories, Alex covers criterion 3, nobody holds the
+clearance* — comes one notice at a time, once `canadabuys enrich` has fetched the solicitation
+documents. Itemised criteria are almost never in the feed; a notice description is a summary,
+and 84 of those 85 verdicts could extract only one requirement from it. That split is deliberate
+and explained under [What the feed can and cannot decide](#what-the-feed-can-and-cannot-decide).
 
 ## Prerequisites
 

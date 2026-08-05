@@ -2,8 +2,23 @@
 # Stage 1 drops anything closing sooner. See spec, Layer 2 stage 1.
 min_turnaround_days: 5
 
-# Notification threshold for the daily digest. Set this from the Annex B
-# Pass 4 score distribution, not from a round number.
+# Notification threshold for the daily digest.
+#
+# WARNING — 70 is an uncalibrated placeholder, and on the only real run so far it
+# sat above almost the entire distribution: 1 of 85 notices reached it, the 90th
+# percentile was 35, and nothing scored higher than 70. Left at 70 against a
+# similar distribution, the daily schedule will almost never notify you — and
+# silence looks exactly like "nothing good today", which is the one failure this
+# design treats as unacceptable.
+#
+# Do not simply lower it. A low distribution has two very different causes:
+# a rubric that is too harsh, or a bidder who genuinely cannot win most of this
+# (no past performance, no supply arrangements). Lowering the threshold fixes the
+# first and buries you in noise under the second.
+#
+# Settle it with Annex B Pass 4 — read real verdicts and correct the rubric
+# first, then set this from what the corrected scores look like:
+#     python tools/pass4_review.py
 notify_score_threshold: 70
 
 active_profiles: []   # empty means all profiles found; consumed by `canadabuys filter`
