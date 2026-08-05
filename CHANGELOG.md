@@ -6,6 +6,18 @@ this project uses [semantic versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **`/outcome`** and `canadabuys record-outcome` — the last unbuilt piece from the original
+  design. Appends one validated JSON line per decision to `outcomes.jsonl`; never touches the
+  rubric itself. Controlled-vocabulary reason codes so patterns are countable, a required
+  score/recommendation snapshot so a later rubric edit can't make history unrecoverable, and a
+  hard stop on `result: won` with no captured client/value/dates/reference — a win is this
+  group's only path to real past-performance evidence and must not be lost to a skipped field.
+- **`canadabuys enrich`** — on-demand download of a notice's attachments, serving the
+  `investigate` verdict. Measured against the 14 notices that survived triage on a real run:
+  only 6 had a genuine solicitation package; 4 were a one-page advertisement pointing at a
+  contracting officer, including the single highest-scoring notice of that run; 4 had nothing
+  at all. The CLI now names the contact when there is nothing to download, and warns that a
+  lone attachment may be an ad rather than the package — it never emails anyone itself.
 - **`/add-source`** — a generator for source skills covering other procurement portals. Walks
   interview, feed investigation, scaffolding, and verification, and enforces an eleven-rule
   source contract. Most of that contract is the set of mistakes that fail *silently*: colliding

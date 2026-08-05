@@ -16,6 +16,8 @@
       "Bash(canadabuys stats:*)",
       "Bash(canadabuys filter:*)",
       "Bash(canadabuys apply:*)",
+      "Bash(canadabuys enrich:*)",
+      "Bash(canadabuys record-outcome:*)",
       "Bash(python -m canadabuys.cli:*)",
       "Bash(python tools/lint_skills.py)",
       "Bash(python tools/archive_report.py:*)",

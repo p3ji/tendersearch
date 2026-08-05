@@ -15,6 +15,7 @@ from canadabuys.fetch import FEEDS, fetch_feed, ingest
 from canadabuys.store import NoticeStore, safe_filename
 from matching.filter import FilterConfig, filter_all
 from matching.lowbarrier import classify
+from matching.outcome import REASON_CODES, Outcome, OutcomeError, WinDetails, append as append_outcome
 from matching.profile import load_profiles
 from matching.verdict import VerdictError, load_verdict
 
@@ -211,6 +212,70 @@ def _print_contact(notice) -> None:
         print("Requesting them is a human step - this tool never emails a buyer.")
 
 
+def cmd_outcome(args) -> int:
+    """Append one decision record to outcomes.jsonl. Never edits the rubric.
+
+    This is the deterministic half of /outcome: validating and writing the
+    record. The interview -- which reason code, what happened, capturing win
+    details while they are known -- is the LLM step in .claude/commands/outcome.md.
+    Record no-bids here as diligently as bids; see matching/outcome.py.
+    """
+    win_details = None
+    if args.result == "won":
+        missing = [
+            name for name, value in (
+                ("--win-client", args.win_client),
+                ("--win-value", args.win_value),
+                ("--win-start", args.win_start),
+                ("--win-end", args.win_end),
+            )
+            if not value
+        ]
+        if missing:
+            print(
+                f"ERROR: result is 'won' but missing {', '.join(missing)} -- "
+                f"capture these now, while they are known. A win becomes this "
+                f"group's past-performance evidence.",
+                file=sys.stderr,
+            )
+            return 1
+        win_details = WinDetails(
+            client=args.win_client,
+            value=float(args.win_value),
+            start=args.win_start,
+            end=args.win_end,
+            reference_name=args.win_reference_name,
+            reference_email=args.win_reference_email,
+        )
+
+    outcome = Outcome(
+        reference=args.notice_id,
+        subject=args.subject,
+        subject_kind=args.subject_kind,
+        date=args.date or datetime.date.today().isoformat(),
+        score_at_decision=args.score,
+        recommendation_at_decision=args.recommendation,
+        decision=args.decision,
+        reason_code=args.reason_code,
+        notes=args.notes or "",
+        result=args.result,
+        result_reason=args.result_reason or "",
+        debrief_notes=args.debrief_notes or "",
+        win_details=win_details,
+    )
+
+    try:
+        append_outcome(pathlib.Path(args.outcomes), outcome)
+    except OutcomeError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"recorded: {outcome.reference} | {outcome.decision} | {outcome.reason_code}")
+    if win_details:
+        print("win details captured -- consider adding this to the member's past_performance")
+    return 0
+
+
 def cmd_apply(args) -> int:
     """Assemble bids/<notice-id>/scaffold.json from an existing verdict.
 
@@ -382,6 +447,31 @@ def main(argv: list[str] | None = None) -> int:
     p_apply.add_argument("--matches", default="matches")
     p_apply.add_argument("--bids", default="bids")
     p_apply.set_defaults(func=cmd_apply)
+
+    p_outcome = sub.add_parser(
+        "record-outcome", help="append one bid/no-bid decision to outcomes.jsonl"
+    )
+    p_outcome.add_argument("notice_id", help="notice reference number")
+    p_outcome.add_argument("--subject", required=True, help="profile or team id")
+    p_outcome.add_argument("--subject-kind", required=True, choices=("profile", "team"))
+    p_outcome.add_argument("--score", required=True, type=int, help="score at decision time")
+    p_outcome.add_argument("--recommendation", required=True,
+                            help="recommendation at decision time, e.g. bid/no-bid/investigate")
+    p_outcome.add_argument("--decision", required=True, choices=("bid", "no-bid"))
+    p_outcome.add_argument("--reason-code", required=True, choices=REASON_CODES)
+    p_outcome.add_argument("--notes", default="")
+    p_outcome.add_argument("--date", help="ISO date; defaults to today")
+    p_outcome.add_argument("--result", choices=("won", "lost", "no-award", "pending"))
+    p_outcome.add_argument("--result-reason", default="")
+    p_outcome.add_argument("--debrief-notes", default="")
+    p_outcome.add_argument("--win-client")
+    p_outcome.add_argument("--win-value")
+    p_outcome.add_argument("--win-start")
+    p_outcome.add_argument("--win-end")
+    p_outcome.add_argument("--win-reference-name")
+    p_outcome.add_argument("--win-reference-email")
+    p_outcome.add_argument("--outcomes", default="outcomes.jsonl")
+    p_outcome.set_defaults(func=cmd_outcome)
 
     args = parser.parse_args(argv)
     return args.func(args)

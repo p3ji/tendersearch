@@ -41,11 +41,15 @@ Scheduling: see `docs/scheduling.md`.
 
 ## Per-notice, after a bid/no-bid decision
 
-    /apply <notice-id>  # assemble a bid draft in bids/<notice-id>/ from an existing verdict
+    /apply <notice-id>    # assemble a bid draft in bids/<notice-id>/ from an existing verdict
+    /outcome <notice-id>  # record the decision (and, later, the result) to outcomes.jsonl
 
-Not part of the daily scheduled run — run it by hand for a specific notice once `/rank` has
-already produced a verdict for it. Uses the `tender-assistant` skill for drafting style and
-structure. `/outcome` (recording the decision and result) is specified but not yet built.
+Neither is part of the daily scheduled run — run them by hand for a specific notice.
+`/apply` requires that `/rank` has already produced a verdict for it, and uses the
+`tender-assistant` skill for drafting style and structure. `/outcome` should be run for
+**every** decision, bid or no-bid — no-bids are the outcome signal that actually accumulates,
+and it never adjusts the rubric itself; a human reads `outcomes.jsonl` later and edits
+`.claude/skills/tender-matcher/SKILL.md` by hand.
 
 ## Annex B archive passes
 

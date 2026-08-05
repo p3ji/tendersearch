@@ -176,6 +176,7 @@ which is the second-largest reject bucket on a typical day.
 | `/profile <member>` | Build or update a member profile from evidence plus interview. |
 | `/team <name>` | Declare or edit a team. |
 | `/apply <notice-id>` | Assemble a bid draft for a notice that already has a verdict from `/rank`. Run per-notice, not part of the daily schedule. |
+| `/outcome <notice-id>` | Record the decision — and later the result — to `outcomes.jsonl`. Run for **every** decision, bid or no-bid; no-bids are the signal that actually accumulates. Never touches the rubric itself. |
 | `/add-source [url]` | Build a source skill for another procurement portal — a province, a municipality, another country. Interviews you, investigates the feed, scaffolds the package, and verifies it before registering. `--list` shows what is installed. |
 
 If more than one profile or team has a verdict for the same notice, `/apply` needs
@@ -190,6 +191,8 @@ canadabuys stats
 canadabuys filter --profiles profiles [--config config.yml] [--json PATH] [--include-rejected]
 canadabuys enrich <notice-id>           # download that notice's attachments
 canadabuys apply <notice-id> [--profile ID | --team ID]
+canadabuys record-outcome <notice-id> --subject ID --subject-kind profile|team \
+    --score N --recommendation R --decision bid|no-bid --reason-code CODE [--result ...]
 canadabuys --notices DIR fetch          # note: --notices goes BEFORE the subcommand
 ```
 
@@ -288,7 +291,7 @@ tests/             Full suite. Fixtures are real feed data; nothing hits the net
 
 .claude/skills/tender-matcher/     The stage-2 rubric. Markdown, meant to be edited.
 .claude/skills/tender-assistant/   Bid-drafting style and structure for /apply.
-.claude/commands/                  /scrape /rank /profile /team /apply /add-source
+.claude/commands/                  /scrape /rank /profile /team /apply /outcome /add-source
 .agents/skills/canadabuys-search/  Portable portal skill + feed reference
 
 profiles/<member>/     GIT-IGNORED. profile.yml + evidence/ (resumes, past work)
@@ -297,7 +300,7 @@ notices/               Raw notices, regenerable
 matches/<date>/        Verdicts and digests, regenerable
 bids/<notice-id>/      GIT-IGNORED. Your bid drafts — back these up yourself.
 archives/              GIT-IGNORED. Downloaded fiscal-year CSVs for offline tuning.
-outcomes.jsonl         GIT-IGNORED. Recorded decisions and results (not yet built).
+outcomes.jsonl         GIT-IGNORED. One JSON line per recorded decision. Append-only.
 config.yml             Thresholds, active profiles
 ```
 
@@ -471,5 +474,5 @@ The matching engine and the application assistant are built and tested. Outcome 
 | Member profiles, teams | Built |
 | Archive analysis tooling | Built |
 | `/apply` — assembled response draft | Built |
-| `/outcome` — decision + result recording | **Not built** — schema is specified, commands are not |
+| `/outcome` — decision + result recording | Built |
 
