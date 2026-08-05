@@ -30,6 +30,37 @@ For each notice, against each active profile and team, emit an object matching:
 }
 ```
 
+## What the three recommendations mean
+
+They are instructions, not grades. Each says what happens next.
+
+| | Meaning | Next step |
+|---|---|---|
+| `no-bid` | Structurally ineligible or clearly outside scope. Decided. | Nothing. Do not spend more on it. |
+| `bid` | Eligible, well-fitted, and nothing further is needed to commit. | `/apply` |
+| `investigate` | **The feed does not contain enough to decide.** | `canadabuys enrich <ref>`, read the documents, re-judge |
+
+**`investigate` is the honest answer, not a hedge.** The feed's description
+answers *am I structurally eligible?* — and it answers it well: on a real run,
+65 of 85 deal-breakers were identifiable from the description alone. What it
+usually cannot answer is *can I clear the specific bar?*, because minimum years,
+required reference projects, and named certifications live in the attached
+solicitation documents.
+
+So when the notice plainly states the criteria, judge them. When it defers to
+attachments, say `investigate` and name in `reasoning` **what specifically you
+would need to see** — "mandatory quals and any Indigenous-supplier restriction
+are not in the notice text" is actionable; "needs more information" is not.
+
+Do not inflate an `investigate` into a `bid` because the fit looks good, and do
+not deflate it into a `no-bid` because past performance is thin. Both throw away
+the one thing that makes the verdict useful: knowing which question is still open.
+
+One caveat worth stating in `reasoning` when relevant: some CanadaBuys entries
+attach only the notice-of-proposed-procurement advertisement, and the real
+package must be requested from the contracting authority by email. `enrich` will
+fetch a one-page ad in that case, and the next step is a human sending an email.
+
 ## How to judge
 
 1. **Extract the real criteria** from `description` and `selection_criteria`.

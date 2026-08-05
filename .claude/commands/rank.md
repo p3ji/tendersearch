@@ -52,6 +52,10 @@ into one ranked list**:
 ## Low-barrier track (vehicles, ACANs, subcontracting)
 | Score | Closes | Notice | Buyer | Kind | Confidence | Recommendation |
 
+## Needs a closer read
+Notices recommended `investigate` — the feed did not carry enough to decide.
+| Score | Closes | Notice | What is still unknown | Fetch |
+
 ## Gaps worth noting
 Requirements that blocked otherwise-good matches — these are what to fix.
 
@@ -59,6 +63,26 @@ Requirements that blocked otherwise-good matches — these are what to fix.
 Notices whose criteria or deadline changed. Re-read these; a prior decision
 may no longer hold.
 ```
+
+### The "Needs a closer read" section
+
+This is an action queue, not a ranking. Every `investigate` verdict goes here,
+sorted by closing date ascending — soonest first, because these still need work
+before a decision and the deadline is what makes them urgent.
+
+- **What is still unknown** comes from the verdict's `reasoning`: state the
+  specific missing thing ("mandatory quals and any Indigenous-supplier
+  restriction are not in the notice text"), not "needs review".
+- **Fetch** is the literal command, ready to copy: `canadabuys enrich <ref>`.
+  It downloads that notice's attachments to `notices/attachments/<ref>/`, which
+  Claude Code can then read directly.
+- Notices with no attachments listed are worth flagging in this section as
+  *documents by request* — `enrich` will find nothing and the real next step is
+  emailing the contracting authority. Some CanadaBuys entries attach only a
+  one-page advertisement, so a successful fetch is not proof the criteria arrived.
+
+Expect this section to be short. On a real run, 11 of 85 judged notices reached
+this state and the other 74 were decided from the feed.
 
 Sort the open-competitions section by score descending. The low-barrier
 section sorts by confidence first, then by score descending within each

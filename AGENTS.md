@@ -26,6 +26,7 @@ Finds and triages Canadian federal tender opportunities for a small consulting g
 ## Commands
 
     canadabuys fetch     # pull open notices into notices/
+    canadabuys enrich <id>   # download one notice's attachments (serves `investigate`)
     pytest               # full suite, offline
 
 ## Daily workflow

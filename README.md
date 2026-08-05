@@ -172,9 +172,31 @@ CLI, underneath:
 canadabuys fetch [--feed open|new] [--file PATH]
 canadabuys stats
 canadabuys filter --profiles profiles [--config config.yml] [--json PATH] [--include-rejected]
+canadabuys enrich <notice-id>           # download that notice's attachments
 canadabuys apply <notice-id> [--profile ID | --team ID]
 canadabuys --notices DIR fetch          # note: --notices goes BEFORE the subcommand
 ```
+
+### What the feed can and cannot decide
+
+The daily run never opens an attachment, and that is deliberate. The feed's description
+answers the question that settles most notices — *am I structurally eligible?* On a real
+run, **65 of 85 deal-breakers came from the description alone**: not a TBIPS supply-arrangement
+holder, restricted to named suppliers, wrong specialty entirely.
+
+What it usually cannot answer is *can I clear the specific bar?* — minimum years, required
+reference projects, named certifications. Those live in the solicitation documents. On that
+same run only **11 of 85** notices got that far, and the rubric had already marked 9 of them
+`investigate` rather than guessing.
+
+So `investigate` is an instruction: run `canadabuys enrich <notice-id>`, read what comes
+back, and re-judge. Fetching attachments for all ~900 notices to answer a question that
+arises for eleven would put network I/O — the fragile part — back on the daily path for
+nothing.
+
+One caveat: some CanadaBuys entries attach only a one-page advertisement and the real
+package must be requested from the contracting authority by email. A successful fetch is
+not proof the criteria arrived.
 
 ## How matching works
 
