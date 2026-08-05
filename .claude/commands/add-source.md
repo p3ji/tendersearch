@@ -53,24 +53,27 @@ Before anything else, find out **how often the source republishes**, and say so
 plainly. This is the question most likely to make the rest of the work pointless,
 and it is cheap to answer.
 
-Tender windows are short: on CanadaBuys, notices commonly close 10–15 business
-days after publication, and stage 1 already drops anything inside
-`min_turnaround_days`. A source that republishes **monthly** cannot feed a daily
-triage run — by the time a notice appears, most of its window is gone.
+**Cadence alone means nothing — compare it to the bid windows.** A weekly feed
+against month-long windows is comfortable; a weekly feed against ten-day windows
+loses most of them. Measure both, then judge.
 
-Measured examples, 2026-08:
+Measured 2026-08:
 
-| Source | Cadence | Usable for the daily run? |
-|---|---|---|
-| CanadaBuys `openTenderNotice` | Daily, 07:00–08:30 UTC-0500 | Yes |
-| CanadaBuys `newTenderNotice` | Every 2h | Yes |
-| Quebec SEAO open data | **Monthly** | No — market analysis only |
+| Source | Cadence | Typical window | Usable daily? |
+|---|---|---|---|
+| CanadaBuys `openTenderNotice` | Daily, 07:00–08:30 UTC-0500 | 10–15 business days | Yes |
+| CanadaBuys `newTenderNotice` | Every 2h | same | Yes |
+| Quebec SEAO (OCDS JSON) | Weekly | median 27 days, 1 of 185 under 14 | Yes |
 
-If the cadence is slower than roughly weekly, **stop and say so before writing a
-parser.** The source may still be worth building for Annex B market-mapping, but
-that is a different and much smaller job, and the user should choose it knowingly
-rather than discover it after the skill is finished. Record the cadence in
-`url-reference.md` either way.
+Compute the window distribution from the feed itself rather than trusting a
+portal's marketing copy — SEAO's own catalogue description says monthly, while the
+resource list carries weekly `hebdo_` files. **Check the data, not the blurb.**
+
+If publication lag consumes most of a typical window, **stop and say so before
+writing a parser.** The source may still be worth building for Annex B
+market-mapping, but that is a different and much smaller job, and the user should
+choose it knowingly rather than discover it after the skill is finished. Record
+both numbers in `url-reference.md` either way.
 
 ---
 
@@ -82,7 +85,8 @@ Never generate a parser from a guess about a feed's shape. Fetch first.
    CanadaBuys is unusually generous; most portals are not. Checked 2026-08:
    Ontario's catalogue publishes only a three-year *planned* outlook, not live
    notices, and BC Bid runs on a commercial platform with no open feed at all.
-   Quebec's SEAO does publish JSON, but monthly (see Step 1b).
+   Quebec's SEAO is the good case: weekly JSON in the Open Contracting Data
+   Standard, ~185 new notices a week, every one carrying a UNSPSC classification.
 
    So check the jurisdiction's open-data catalogue first — that path is stabler,
    faster, and unambiguous about terms of use — but be ready to report back that

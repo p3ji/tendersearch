@@ -46,10 +46,11 @@ thing people will want to add.
   catalogue carries only a three-year *planned* outlook, not live notices; BC Bid runs on a
   commercial platform with no open feed. Most portals mean HTML scraping, with the
   crawl-policy and fragility that implies.
-- **How often does it republish?** Tender windows are 10–15 business days. Quebec's SEAO
-  publishes real open JSON — **monthly**, which cannot serve a daily triage run. A slow source
-  can still be worth building for Annex B market-mapping, but that is a different and smaller
-  job, and worth choosing deliberately rather than discovering at the end.
+- **How often does it republish, and how long are the windows?** The two only matter
+  together. Quebec's SEAO publishes weekly, which sounds worse than CanadaBuys' daily until you
+  measure the windows: median 27 days, and 1 of 185 notices closing inside 14. Weekly is
+  comfortable there. A monthly feed against 10-day windows would not be. Measure both before
+  deciding, and record them in `url-reference.md`.
 
 `/add-source` asks both questions first. Reporting back "this portal has no usable feed" is a
 useful result, not a failed attempt.

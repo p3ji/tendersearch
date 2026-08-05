@@ -366,14 +366,22 @@ countries' tender portals, or an entirely different matching domain — swap the
 and the rubric, keep the two-stage architecture.
 
 **The hard part is upstream of the code, though.** Surveyed 2026-08: CanadaBuys is unusually
-generous with open data, and its neighbours are not. Ontario's catalogue publishes only a
-three-year *planned* outlook rather than live notices; BC Bid runs on a commercial platform
-with no open feed; Quebec's SEAO does publish real JSON, but **monthly** — too slow for a tool
-built around 10–15 day bid windows, though fine for market analysis.
+generous with open data, and its neighbours vary a lot. Ontario's catalogue publishes only a
+three-year *planned* outlook rather than live notices, and BC Bid runs on a commercial platform
+with no open feed at all. Quebec's [SEAO](https://www.donneesquebec.ca/recherche/dataset/systeme-electronique-dappel-doffres-seao)
+is the good case: weekly JSON in the Open Contracting Data Standard, 185 new notices a week,
+with a median bid window of 27 days.
 
 So before writing a parser, establish that a feed exists and that it refreshes fast enough to
 be worth reading. `/add-source` asks both first. "This portal has no usable feed" is a real
 finding worth posting, not a failed attempt.
+
+The `Notice` schema does accommodate a genuinely different shape — mapping SEAO's OCDS onto it
+needed no changes above ingestion. Two things it surfaced: `status` arrives as `active`, not
+`open`, so an unmapped status would silently drop every notice; and SEAO carries no
+notice-level description at all, while classifying 100% of notices with UNSPSC. CanadaBuys is
+the mirror image — rich descriptions, but 15% of notices with no code. Stage 1 matching on
+codes *or* keywords is what lets one filter serve both.
 
 If you fork it for another jurisdiction or market, open a
 [fork index](https://github.com/p3ji/tendersearch/discussions/1) and say so. A source skill
