@@ -329,6 +329,10 @@ adapted for federal-sector use.
 
 Built with [Claude Code](https://claude.com/claude-code).
 
+## License
+
+MIT — see [LICENSE](LICENSE). Use it, fork it, adapt it for another jurisdiction.
+
 ## Support
 
 If this saved you a weekend you would have spent on an unwinnable bid, you can
