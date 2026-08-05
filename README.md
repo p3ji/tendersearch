@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/tendersearch-logo.png" alt="tendersearch" width="520">
+</p>
+
 # tendersearch
 
 *Federal tender triage that runs on your machine.*
