@@ -10,6 +10,7 @@ import sys
 
 import yaml
 
+from canadabuys.enrich import enrich_reference
 from canadabuys.fetch import FEEDS, fetch_feed, ingest
 from canadabuys.store import NoticeStore, safe_filename
 from matching.filter import FilterConfig, filter_all
@@ -145,6 +146,37 @@ def cmd_filter(args) -> int:
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text(json.dumps(records, indent=2, ensure_ascii=False), encoding="utf-8")
 
+    return 0
+
+
+def cmd_enrich(args) -> int:
+    """Download a notice's attachments so the real criteria can be read.
+
+    Serves the `investigate` verdict. The feed answers "am I structurally
+    eligible?"; the solicitation documents answer "can I clear the specific
+    bar?". Only the handful of notices that survive triage need the second.
+    """
+    store = NoticeStore(pathlib.Path(args.notices))
+    try:
+        result = enrich_reference(args.notice_id, store)
+    except KeyError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+    if not result.files:
+        print(f"{result.reference}: no attachments listed on this notice.")
+        print("The description is all the feed carries for it.")
+        return 0
+
+    for f in result.files:
+        detail = f" ({f.detail})" if f.detail else ""
+        name = f.path.name if f.path else f.url.rsplit("/", 1)[-1]
+        print(f"  {f.status:<11} {name}{detail}")
+
+    print(f"\n{result.directory}")
+    if not result.ok:
+        print("Some attachments could not be fetched — see above.", file=sys.stderr)
+        return 1
     return 0
 
 
@@ -304,6 +336,12 @@ def main(argv: list[str] | None = None) -> int:
         help="include rejected notices in --json output (Annex B recall audit)",
     )
     p_filter.set_defaults(func=cmd_filter)
+
+    p_enrich = sub.add_parser(
+        "enrich", help="download one notice's attachments for a closer read"
+    )
+    p_enrich.add_argument("notice_id", help="notice reference number")
+    p_enrich.set_defaults(func=cmd_enrich)
 
     p_apply = sub.add_parser("apply", help="assemble the bid scaffold for a judged notice")
     p_apply.add_argument("notice_id", help="notice reference number")
