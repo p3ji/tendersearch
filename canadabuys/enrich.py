@@ -17,6 +17,24 @@ So this exists to serve `investigate`, one notice at a time. Putting it on the
 daily path would pay the fragility cost of network I/O over ~900 notices to
 answer a question that arises for about eleven.
 
+**What it will and will not get you.** Measured against the 14 notices that
+survived triage on the 2026-08-04 run:
+
+    6 of 14   attachments are a real solicitation package -- criteria answered
+    4 of 14   attachment is a one-page advertisement, and the package itself is
+              obtained by emailing the contracting authority
+    4 of 14   no attachments at all; the feed is everything there is
+
+So this closes the loop for under half the notices that reach it. The ad-only
+case is not an edge case -- it caught the single highest-scoring notice of that
+run, a WSCC survey RFP whose entire attachment was a poster ending "interested
+parties may obtain documents from: Procurementmailbox@wscc.nt.ca".
+
+When there is nothing useful to download, the CLI prints the notice's contact
+details, because the next step is a human emailing the buyer. That step stays
+human by design: automated contact with contracting authorities is permanently
+out of scope. See SECURITY.md.
+
 Files are downloaded, not parsed. Claude Code reads PDFs natively, and adding a
 PDF text-extraction dependency to serve a handful of notices per week is not a
 trade worth making.

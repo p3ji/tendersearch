@@ -163,9 +163,12 @@ def cmd_enrich(args) -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 
+    notice = store.load(args.notice_id)
+
     if not result.files:
         print(f"{result.reference}: no attachments listed on this notice.")
-        print("The description is all the feed carries for it.")
+        print("The feed description is everything CanadaBuys carries for it.")
+        _print_contact(notice)
         return 0
 
     for f in result.files:
@@ -174,10 +177,38 @@ def cmd_enrich(args) -> int:
         print(f"  {f.status:<11} {name}{detail}")
 
     print(f"\n{result.directory}")
+
+    # An attachment is often just a one-page advertisement pointing at a
+    # procurement officer, not the solicitation package. Measured on the
+    # 2026-08-04 run, that was 4 of the 14 notices that survived triage --
+    # including the highest-scoring one. Read what came down before assuming
+    # the criteria are in it.
+    if len(result.files) == 1:
+        print(
+            "\nOnly one attachment. On this feed a lone file is often an advertisement\n"
+            "rather than the solicitation package - read it before assuming the\n"
+            "mandatory criteria are in there."
+        )
+        _print_contact(notice)
+
     if not result.ok:
-        print("Some attachments could not be fetched — see above.", file=sys.stderr)
+        print("Some attachments could not be fetched - see above.", file=sys.stderr)
         return 1
     return 0
+
+
+def _print_contact(notice) -> None:
+    """Show who to ask when the documents are not published.
+
+    Requesting a solicitation package is a human step, deliberately: automated
+    contact with a contracting authority is permanently out of scope.
+    """
+    if notice is None:
+        return
+    contact = " / ".join(x for x in (notice.contact_name, notice.contact_email) if x)
+    if contact:
+        print(f"\nContact for documents: {contact}")
+        print("Requesting them is a human step - this tool never emails a buyer.")
 
 
 def cmd_apply(args) -> int:

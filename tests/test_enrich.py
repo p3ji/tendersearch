@@ -132,3 +132,42 @@ def test_reference_containing_a_colon_gets_a_safe_directory(tmp_path, monkeypatc
 def test_enrich_reference_reports_an_unknown_notice(tmp_path):
     with pytest.raises(KeyError, match="canadabuys fetch"):
         E.enrich_reference("cb-does-not-exist", NoticeStore(tmp_path))
+
+
+def test_cli_names_the_contact_when_there_is_nothing_to_download(tmp_path, capsys):
+    # The feed lists no attachment for 4 of the 14 notices that survived triage
+    # on a real run. Telling the user "no attachments" without saying who holds
+    # the documents leaves them at a dead end.
+    from canadabuys import cli
+    store = NoticeStore(tmp_path)
+    n = notice("", reference="cb-9-000")
+    n.contact_name = "Senior Procurement Specialist"
+    n.contact_email = "procurement@example.gc.ca"
+    store.save(n)
+
+    args = type("A", (), {"notices": str(tmp_path), "notice_id": "cb-9-000"})()
+    assert cli.cmd_enrich(args) == 0
+
+    out = capsys.readouterr().out
+    assert "no attachments" in out
+    assert "procurement@example.gc.ca" in out
+    assert "never emails a buyer" in out
+
+
+def test_cli_warns_when_a_lone_attachment_may_be_an_advertisement(tmp_path, capsys, monkeypatch):
+    # The single highest-scoring notice of the 2026-08-04 run had exactly one
+    # attachment, and it was a poster saying "obtain documents from <email>",
+    # not the solicitation package.
+    from canadabuys import cli
+    monkeypatch.setattr(E.requests, "get", lambda *a, **k: FakeResponse())
+    store = NoticeStore(tmp_path)
+    n = notice("https://x.ca/advert.pdf", reference="cb-9-001")
+    n.contact_email = "procurement@example.gc.ca"
+    store.save(n)
+
+    args = type("A", (), {"notices": str(tmp_path), "notice_id": "cb-9-001"})()
+    assert cli.cmd_enrich(args) == 0
+
+    out = capsys.readouterr().out
+    assert "advertisement" in out
+    assert "procurement@example.gc.ca" in out
