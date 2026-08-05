@@ -1,6 +1,6 @@
 import datetime
 import pytest
-from canadabuys.fields import split_multi, parse_date, parse_datetime, FEED_TZ
+from canadabuys.fields import split_multi, split_urls, parse_date, parse_datetime, FEED_TZ
 
 
 def test_split_multi_single_value_strips_star():
@@ -47,3 +47,35 @@ def test_parse_datetime_empty_is_none():
 def test_parse_datetime_malformed_raises():
     with pytest.raises(ValueError):
         parse_datetime("19 August 2026")
+
+
+def test_split_urls_handles_comma_separated_attachments():
+    # Attachments do NOT follow the star/newline convention every other
+    # multi-value field uses -- they are comma-joined. Measured on the live
+    # feed: 273 of 920 notices carry more than one URL in a single entry.
+    raw = "https://x.ca/a.pdf,https://x.ca/b.pdf,https://x.ca/c.pdf"
+    assert split_urls(raw) == ["https://x.ca/a.pdf", "https://x.ca/b.pdf", "https://x.ca/c.pdf"]
+
+
+def test_split_urls_handles_a_single_url():
+    assert split_urls("https://x.ca/a.pdf") == ["https://x.ca/a.pdf"]
+
+
+def test_split_urls_handles_the_star_prefix_too():
+    # Belt and braces: the feed prefixes some multi-values with *.
+    assert split_urls("*https://x.ca/a.pdf") == ["https://x.ca/a.pdf"]
+
+
+def test_split_urls_handles_both_separators_together():
+    raw = "*https://x.ca/a.pdf,https://x.ca/b.pdf\n*https://x.ca/c.pdf"
+    assert split_urls(raw) == ["https://x.ca/a.pdf", "https://x.ca/b.pdf", "https://x.ca/c.pdf"]
+
+
+def test_split_urls_empty_is_empty_list():
+    assert split_urls("") == []
+    assert split_urls(None) == []
+
+
+def test_split_urls_drops_fragments_that_are_not_urls():
+    # A trailing comma or stray token must not become a bogus "URL".
+    assert split_urls("https://x.ca/a.pdf,") == ["https://x.ca/a.pdf"]

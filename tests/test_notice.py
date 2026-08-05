@@ -99,3 +99,17 @@ def test_first_seen_and_source_feed_recorded():
     assert n.last_updated == NOW
     assert n.source_feed == "open"
     assert n.needs_rematch is False
+
+
+def test_comma_joined_attachments_become_separate_urls():
+    # 273 of 920 live notices pack multiple PDFs into one comma-joined entry.
+    # Treating that as a single attachment breaks anything that fetches them.
+    n = Notice.from_csv_row(
+        {
+            **load_rows()[0],
+            "attachment-piecesJointes-eng": "https://x.ca/a.pdf,https://x.ca/b.pdf",
+        },
+        "open",
+        NOW,
+    )
+    assert n.attachments == ["https://x.ca/a.pdf", "https://x.ca/b.pdf"]

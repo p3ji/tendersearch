@@ -48,6 +48,30 @@ def split_multi(raw: str | None) -> list[str]:
     return [p.lstrip("*").strip() for p in parts if p.strip().strip("*")]
 
 
+def split_urls(raw: str | None) -> list[str]:
+    """Split an attachment field into individual URLs.
+
+    Attachments are the one multi-value field that does NOT follow the feed's
+    `*`-prefixed, newline-separated convention: multiple URLs are joined with
+    commas inside a single entry. Measured on the live feed 2026-08-05, 273 of
+    920 notices carry more than one URL this way, and `split_multi` returns
+    them glued into one string -- one notice packs five PDFs into a single
+    entry.
+
+    Splitting on commas is safe here because a comma in a real URL would be
+    percent-encoded as %2C.
+    """
+    if not raw:
+        return []
+    urls: list[str] = []
+    for chunk in split_multi(raw):
+        for part in chunk.split(","):
+            part = part.strip()
+            if part.startswith("http"):
+                urls.append(part)
+    return urls
+
+
 def parse_date(raw: str | None) -> datetime.date | None:
     if not raw or not raw.strip():
         return None

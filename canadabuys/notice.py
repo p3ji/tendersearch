@@ -77,7 +77,8 @@ class Notice:
             description=txt(F.COL_DESCRIPTION),
             description_fr=txt(F.COL_DESCRIPTION_FR),
             notice_url=txt(F.COL_NOTICE_URL),
-            attachments=F.split_multi(row.get(F.COL_ATTACHMENT)),
+            # Attachments are comma-joined, not star/newline separated. See split_urls.
+            attachments=F.split_urls(row.get(F.COL_ATTACHMENT)),
             contact_name=txt(F.COL_CONTACT_NAME),
             contact_email=txt(F.COL_CONTACT_EMAIL),
             first_seen=now_iso,

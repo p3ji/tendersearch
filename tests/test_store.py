@@ -209,3 +209,32 @@ def test_clear_rematch_clears_the_flag_and_persists(store):
 
 def test_clear_rematch_on_unknown_reference_is_a_noop(store):
     store.clear_rematch("does-not-exist")  # must not raise
+
+
+def test_all_deduplicates_when_two_files_hold_the_same_reference(store, tmp_path):
+    # A filename-scheme change once orphaned already-stored notices: the old
+    # path and the new one both existed, _find returned the stale one, and
+    # all() yielded the reference twice. 18 of 920 live notices were affected.
+    n = make(**{"referenceNumber-numeroReference": "SSC-22-00020507:T"})
+    store.save(n)
+    canonical = store.path_for(n.reference, n.first_seen)
+    stale = canonical.parent / "SSC-22-00020507_T.json"
+    stale.write_text(canonical.read_text(encoding="utf-8"), encoding="utf-8")
+
+    refs = [x.reference for x in store.all()]
+    assert refs.count("SSC-22-00020507:T") == 1, "a reference must appear once"
+
+
+def test_load_prefers_the_canonical_path_over_a_stale_sibling(store):
+    n = make(**{
+        "referenceNumber-numeroReference": "SSC-22-00020507:T",
+        "tenderDescription-descriptionAppelOffres-eng": "current",
+    })
+    store.save(n)
+    canonical = store.path_for(n.reference, n.first_seen)
+    stale = canonical.parent / "SSC-22-00020507_T.json"
+    stale.write_text(
+        canonical.read_text(encoding="utf-8").replace("current", "STALE"), encoding="utf-8"
+    )
+
+    assert store.load("SSC-22-00020507:T").description == "current"

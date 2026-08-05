@@ -117,8 +117,29 @@ class NoticeStore:
             self.save(notice)
 
     def all(self) -> Iterator[Notice]:
+        """Every stored notice, one record per reference.
+
+        Deduplicates deliberately. A change to the filename scheme can leave an
+        orphaned file beside the canonical one -- when sanitized references
+        gained a hash suffix, 18 of 920 live notices ended up written twice.
+        A plain glob then yields the same reference more than once, silently
+        inflating every count downstream and letting a stale copy be judged
+        alongside the current one.
+
+        The canonical filename wins; failing that, the most recently updated.
+        """
+        best: dict[str, tuple[bool, str, Notice]] = {}
+
         for path in sorted(self.root.glob("*/*.json")):
-            yield Notice.from_dict(json.loads(path.read_text(encoding="utf-8")))
+            notice = Notice.from_dict(json.loads(path.read_text(encoding="utf-8")))
+            is_canonical = path.name == f"{safe_filename(notice.reference)}.json"
+            candidate = (is_canonical, notice.last_updated or "", notice)
+            existing = best.get(notice.reference)
+            if existing is None or candidate[:2] > existing[:2]:
+                best[notice.reference] = candidate
+
+        for _, _, notice in sorted(best.values(), key=lambda item: item[2].reference):
+            yield notice
 
 
 def _comparable(n: Notice) -> dict:
