@@ -365,6 +365,16 @@ is specific to that. The same structure fits provincial and municipal procuremen
 countries' tender portals, or an entirely different matching domain — swap the source skill
 and the rubric, keep the two-stage architecture.
 
+**The hard part is upstream of the code, though.** Surveyed 2026-08: CanadaBuys is unusually
+generous with open data, and its neighbours are not. Ontario's catalogue publishes only a
+three-year *planned* outlook rather than live notices; BC Bid runs on a commercial platform
+with no open feed; Quebec's SEAO does publish real JSON, but **monthly** — too slow for a tool
+built around 10–15 day bid windows, though fine for market analysis.
+
+So before writing a parser, establish that a feed exists and that it refreshes fast enough to
+be worth reading. `/add-source` asks both first. "This portal has no usable feed" is a real
+finding worth posting, not a failed attempt.
+
 If you fork it for another jurisdiction or market, open a
 [fork index](https://github.com/p3ji/tendersearch/discussions/1) and say so. A source skill
 someone has already written and tested against a real feed is worth far more than a second

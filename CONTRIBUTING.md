@@ -38,7 +38,23 @@ archive-analysis override. Assume there are more.
 ## New sources belong in forks first
 
 A source skill for a provincial portal, MERX, or another country's tender system is the main
-thing people will want to add. **Run `/add-source` in Claude Code** — it walks the steps below,
+thing people will want to add.
+
+**Check two things before you start, because either can end the project.** Surveyed 2026-08:
+
+- **Does an open feed exist at all?** CanadaBuys is unusually generous. Ontario's open-data
+  catalogue carries only a three-year *planned* outlook, not live notices; BC Bid runs on a
+  commercial platform with no open feed. Most portals mean HTML scraping, with the
+  crawl-policy and fragility that implies.
+- **How often does it republish?** Tender windows are 10–15 business days. Quebec's SEAO
+  publishes real open JSON — **monthly**, which cannot serve a daily triage run. A slow source
+  can still be worth building for Annex B market-mapping, but that is a different and smaller
+  job, and worth choosing deliberately rather than discovering at the end.
+
+`/add-source` asks both questions first. Reporting back "this portal has no usable feed" is a
+useful result, not a failed attempt.
+
+**Run `/add-source` in Claude Code** — it walks the steps below,
 investigates the feed before writing any parser, and enforces the source contract (namespaced
 references, timezone-aware closing dates, a status that normalizes to `open`, absent data
 passing rather than rejecting). Those are the failures that are silent rather than loud, which

@@ -47,14 +47,48 @@ Ask, one question at a time, skipping anything `$ARGUMENTS` already answered:
 
 ---
 
+## Step 1b: Check refresh cadence FIRST — it can end the project
+
+Before anything else, find out **how often the source republishes**, and say so
+plainly. This is the question most likely to make the rest of the work pointless,
+and it is cheap to answer.
+
+Tender windows are short: on CanadaBuys, notices commonly close 10–15 business
+days after publication, and stage 1 already drops anything inside
+`min_turnaround_days`. A source that republishes **monthly** cannot feed a daily
+triage run — by the time a notice appears, most of its window is gone.
+
+Measured examples, 2026-08:
+
+| Source | Cadence | Usable for the daily run? |
+|---|---|---|
+| CanadaBuys `openTenderNotice` | Daily, 07:00–08:30 UTC-0500 | Yes |
+| CanadaBuys `newTenderNotice` | Every 2h | Yes |
+| Quebec SEAO open data | **Monthly** | No — market analysis only |
+
+If the cadence is slower than roughly weekly, **stop and say so before writing a
+parser.** The source may still be worth building for Annex B market-mapping, but
+that is a different and much smaller job, and the user should choose it knowingly
+rather than discover it after the skill is finished. Record the cadence in
+`url-reference.md` either way.
+
+---
+
 ## Step 2: Investigate before writing any code
 
 Never generate a parser from a guess about a feed's shape. Fetch first.
 
-1. **Look for bulk open data before scraping HTML.** Many portals publish a CSV
-   or JSON feed of open notices; that path is stabler, faster, and unambiguous
-   about terms of use. Check the jurisdiction's open-data catalogue before you
-   consider parsing search-result pages.
+1. **Look for bulk open data before scraping HTML — but expect not to find it.**
+   CanadaBuys is unusually generous; most portals are not. Checked 2026-08:
+   Ontario's catalogue publishes only a three-year *planned* outlook, not live
+   notices, and BC Bid runs on a commercial platform with no open feed at all.
+   Quebec's SEAO does publish JSON, but monthly (see Step 1b).
+
+   So check the jurisdiction's open-data catalogue first — that path is stabler,
+   faster, and unambiguous about terms of use — but be ready to report back that
+   no feed exists. "This portal has no open data and would need HTML scraping,
+   here is what that entails" is a **successful** outcome of this step, not a
+   failure. Say it plainly rather than quietly starting to scrape.
 2. **Fetch one real response** and record: the field carrying the unique
    reference number, title, buyer, closing date, status, description, and
    whatever classification codes exist (UNSPSC, GSIN, CPV, NIGP, a local
