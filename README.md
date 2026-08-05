@@ -329,6 +329,17 @@ adapted for federal-sector use.
 
 Built with [Claude Code](https://claude.com/claude-code).
 
+## Contributing
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md) first — it explains what gets merged, what belongs in a
+fork, and the one rule everything else follows from (stage 1 is a recall gate, so absent data
+must never cause a rejection).
+
+[SECURITY.md](SECURITY.md) states the threat model plainly. The short version: this repo runs
+code on your machine, with pre-approved permissions, against your colleagues' resumes and real
+client names. The `.gitignore` allowlist is the only thing keeping that data private, and a
+leak cannot be undone by a revert.
+
 ## License
 
 MIT — see [LICENSE](LICENSE). Use it, fork it, adapt it for another jurisdiction.

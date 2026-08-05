@@ -1,0 +1,26 @@
+{
+  "$comment": [
+    "Pre-approved permissions so a fresh clone works without prompting on every step.",
+    "Every entry here is a STANDING GRANT — commands run without asking. Read a diff to",
+    "this file the way you would read a diff to sudoers. See SECURITY.md.",
+    "",
+    "Deliberately absent: git push, git commit, and any bare Bash. Publishing is a",
+    "human decision, and this project's repo holds an allowlist protecting personal",
+    "data. Personal conveniences belong in settings.local.json, which is not committed."
+  ],
+  "permissions": {
+    "allow": [
+      "Skill(tender-matcher)",
+      "Skill(tender-assistant)",
+      "Bash(canadabuys fetch:*)",
+      "Bash(canadabuys stats:*)",
+      "Bash(canadabuys filter:*)",
+      "Bash(canadabuys apply:*)",
+      "Bash(python -m canadabuys.cli:*)",
+      "Bash(python tools/lint_skills.py)",
+      "Bash(python tools/archive_report.py:*)",
+      "Bash(pytest:*)",
+      "Bash(python -m pytest:*)"
+    ]
+  }
+}
