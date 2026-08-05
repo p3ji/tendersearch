@@ -47,48 +47,6 @@ output here — federal proposals cost weeks, and most of them you cannot win. T
 ("we meet 6 of 8 mandatories; Alex covers criterion 3; nobody holds the clearance") is the
 product.
 
-### How the pieces fit
-
-Three layers, one-way data flow. Each is independently testable and can fail without
-corrupting the others — the reason a feed change never reaches the matcher, and a matcher
-bug is fixed by re-running rather than by hand-repair.
-
-```
-CanadaBuys  ──▶  Ingestion  ──▶  notices/   (raw, immutable)
-                (Python, no LLM)      │
-                                      ▼
-                            Matching stage 1 (code filter)
-                                      │
-                            Matching stage 2 (LLM judgment)
-                                      │
-                                      ▼
-                                 matches/    (verdicts, regenerable)
-                                      │
-                                      ▼
-                            Application (LLM, on demand)
-                                      │
-                                      ▼
-                                  bids/      (your working documents)
-```
-
-`canadabuys/` owns all network and file I/O and contains no judgment. `matching/` is pure
-functions — no I/O, no LLM. Judgment lives in markdown skills you edit, not in code.
-`notices/` and `matches/` are disposable; only `bids/` holds work you would hate to lose.
-
-## Status
-
-The matching engine and the application assistant are built and tested. Outcome recording is not.
-
-| Piece | State |
-|---|---|
-| Feed ingestion, amendment handling | Built — fully tested, all offline |
-| Stage-1 filter, low-barrier classification | Built |
-| Stage-2 rubric + `/rank` digest | Built |
-| Member profiles, teams | Built |
-| Archive analysis tooling | Built |
-| `/apply` — assembled response draft | Built |
-| `/outcome` — decision + result recording | **Not built** — schema is specified, commands are not |
-
 ## Prerequisites
 
 - [Claude Code](https://claude.com/claude-code)
@@ -428,3 +386,20 @@ If this saved you a weekend you would have spent on an unwinnable bid, you can
 
 There is **no affiliated cryptocurrency, token, or paid sponsorship programme** attached to
 this project. Anything claiming otherwise is not mine and should be treated as a scam.
+
+
+
+## Status
+
+The matching engine and the application assistant are built and tested. Outcome recording is not.
+
+| Piece | State |
+|---|---|
+| Feed ingestion, amendment handling | Built — fully tested, all offline |
+| Stage-1 filter, low-barrier classification | Built |
+| Stage-2 rubric + `/rank` digest | Built |
+| Member profiles, teams | Built |
+| Archive analysis tooling | Built |
+| `/apply` — assembled response draft | Built |
+| `/outcome` — decision + result recording | **Not built** — schema is specified, commands are not |
+
