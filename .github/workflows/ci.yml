@@ -71,15 +71,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # profiles/ and teams/ hold members' resumes and real client names. The
-      # .gitignore allowlists only the two example files; this asserts that the
-      # allowlist has not been widened and nothing real slipped past it.
+      # profiles/ and teams/ hold members' resumes and real client names;
+      # bids/ holds drafts naming real opportunities and is the one directory
+      # that cannot be regenerated; archives/ and outcomes.jsonl carry real
+      # procurement history. The .gitignore allowlists only the two example
+      # files; this asserts that the allowlist has not been widened and
+      # nothing real slipped past it.
       - name: Assert only example profiles are tracked
         run: |
-          tracked=$(git ls-files 'profiles/**' 'teams/**' 'outcomes.jsonl' || true)
+          tracked=$(git ls-files 'profiles/**' 'teams/**' 'bids/**' 'archives/**' 'outcomes.jsonl' || true)
           expected=$'profiles/_example/profile.yml\nteams/_example.yml'
           if [ "$tracked" != "$expected" ]; then
-            echo "FAIL - unexpected tracked files under profiles/ or teams/:"
+            echo "FAIL - unexpected tracked files under profiles/, teams/, bids/, or archives/:"
             echo "$tracked"
             echo ""
             echo "Expected exactly:"

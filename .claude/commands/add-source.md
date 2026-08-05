@@ -64,7 +64,7 @@ Never generate a parser from a guess about a feed's shape. Fetch first.
    a separate "amendment" record? `NoticeStore.upsert()` assumes amendments
    arrive as the same reference with a non-decreasing amendment number.
 4. **Measure code coverage on real data.** What share of notices carry a usable
-   classification code? On CanadaBuys it is 84% UNSPSC, 4% GSIN, and 15% carry
+   classification code? On CanadaBuys it is 84–85% UNSPSC, 4% GSIN, and 10–15% carry
    none at all. Write the measured number into `url-reference.md` — it tells a
    profile author how much weight keywords have to pull for this source.
 5. **Check access.** Fetch `robots.txt`. If listings require a login, **stop** —
@@ -103,6 +103,12 @@ tests/test_<source>_*.py
 tests/fixtures/<source>_sample.csv    # a real trimmed response, committed
 ```
 
+**Your `cli.py` needs only `fetch` (and `--file` for fixtures).** Do not
+reimplement `stats`, `filter`, or `apply` — they already operate on the shared
+store and will see your notices the moment `fetch` writes them. A second
+implementation of those subcommands is redundant on day one and drifts by month
+three.
+
 ### The source contract — every source skill MUST honour this
 
 **1. Emit `canadabuys.notice.Notice` and store through `NoticeStore`.** Do not
@@ -115,10 +121,27 @@ and globs across all months, so two sources emitting `2026-001` will silently
 overwrite each other. Prefix every reference with the source id — `on:2026-001`.
 `safe_filename()` already handles the colon.
 
-**3. `status` must lowercase to exactly `open` for open notices.**
-`Notice.is_open()` compares `status.strip().lower() == "open"`. A portal that
-says `Active` or `Ouvert` must be mapped, or stage 1 drops every notice as
-`not-open` and the digest is silently empty. Map it in `fields.py`.
+**3. `status` must lowercase to exactly `open` for open notices — and must never
+be left blank.** This is the one field where the "leave it empty" guidance in
+rules 6 and 7 does not apply, and getting it wrong fails in two different
+directions:
+
+| What you emit | What happens |
+|---|---|
+| `Open` | Correct. Open notices pass, closed ones are dropped. |
+| `Active`, `Ouvert`, anything unmapped | `Notice.is_open()` is false, so stage 1 drops **every** notice as `not-open` and the digest is silently empty. |
+| `""` (blank) | `filter.py:67` gates the closed-check on `notice.status` being truthy, so the check is **skipped entirely** — closed notices leak into the digest forever, and nothing ever flags it. |
+
+The blank case is the dangerous one, because it is the one that looks like it is
+working. It also desynchronizes the tools: `canadabuys stats` counts open
+notices with strict `is_open()`, so a blank-status source reports `open: 0` while
+`canadabuys filter` happily passes those same notices. If you see that
+disagreement in Step 4, this rule is why.
+
+Map every one of the portal's status values explicitly in `fields.py`. If the
+portal has no status concept at all, emit `open` for everything it publishes as
+current and say so in `url-reference.md` — a deliberate constant is auditable, a
+blank is not.
 
 **4. `closing` must be timezone-aware.** Stage 1 compares it against a
 tz-aware UTC `now`; a naive datetime raises `TypeError` mid-filter. If the
@@ -131,10 +154,21 @@ left empty.** `_region_ok()` passes when the list is empty and drops when it is
 populated but unmatched. Emitting a region string nobody's profile uses is
 therefore *worse than emitting nothing*. When unsure, emit nothing.
 
-**6. Unmapped fields are `""` or `[]`, never invented.** A portal with no
-`selection_criteria` gets `""`. Do not synthesize a value, and do not put a
-placeholder string in a text field — `searchable_text()` concatenates those and
-a placeholder becomes a keyword that matches everything.
+Note that `NATIONAL_REGIONS` in `matching/filter.py` (`canada`, `national
+capital region`) is CanadaBuys vocabulary, not part of the generic contract.
+Another jurisdiction gets no equivalent "covers everywhere" shortcut, so a
+province-wide or state-wide value will only match a profile that lists that exact
+string.
+
+**6. Unmapped fields are `""` or `[]`, never invented — except `status`.** A
+portal with no `selection_criteria` gets `""`. Do not synthesize a value, and do
+not put a placeholder string in a text field: `searchable_text()` concatenates
+`title`, `description`, `selection_criteria`, `unspsc_desc`, and `gsin_desc`, so
+a placeholder in any of those becomes a keyword that matches everything. The
+rule holds for the other fields too, for different reasons — `_region_ok()` reads
+`regions_delivery`, the stage-1 code set reads `unspsc`/`gsin`, and low-barrier
+classification reads `notice_type`/`procurement_method` (rule 11). `status` is
+the documented exception; see rule 3.
 
 **7. Absent data must never cause a rejection.** Stage 1 is a recall gate: what
 it drops is never judged and never seen again. If your parser cannot determine
@@ -153,6 +187,23 @@ digest reads exactly like a quiet day and costs a deadline.
 **10. Ingestion performs no judgment.** No scoring, no relevance filtering, no
 LLM in the source package. That separation is what lets a feed change break
 ingestion without corrupting anything downstream.
+
+**11. Map the portal's vehicle types into `notice_type` / `procurement_method`,
+or say explicitly that it has none.** `matching/lowbarrier.py` classifies the
+digest's low-barrier track by case-insensitive substring against those two
+fields: `supply arrangement`, `standing offer`, `advance contract award`. For a
+group with thin procurement history the README calls this track the realistic
+entry path, so losing it is not cosmetic.
+
+A source that honours every other rule but leaves these fields blank — or fills
+them with the portal's own untranslated wording — classifies every notice as
+`none`. The low-barrier section simply never contains your notices. No error, no
+test failure, no warning anywhere. If the portal's equivalents are worded
+differently (`master agreement`, `qualified supplier list`, `prequalification`),
+either normalize them to the terms above in `fields.py`, or extend `_TYPE_RULES`
+and say in your PR that you did. If the portal genuinely has no vehicle concept,
+record that in `url-reference.md` so the next reader knows it is absence rather
+than oversight.
 
 ### File specifics
 
@@ -189,26 +240,52 @@ Cover at minimum:
 5. A response missing a required field raises, with the field named.
 6. Re-ingesting the same fixture is idempotent: `created` then `unchanged`.
 7. An amended fixture sets `needs_rematch`.
+8. A fixture row carrying the portal's real vehicle wording classifies through
+   `matching.lowbarrier.classify()` at `high` confidence (rule 11). If the portal
+   has no vehicle concept, assert `kind == "none"` deliberately so the absence is
+   recorded rather than assumed.
 
 Then run it for real, once:
 
 ```bash
+canadabuys stats            # BEFORE — note the counts
 pytest -q
 <cli> fetch                 # a single live pull
-canadabuys stats            # confirm the notices landed in the shared store
+canadabuys stats            # AFTER — the delta is your source
 canadabuys filter --profiles profiles
 ```
 
-Read actual output before declaring success. Check that titles are real text and
-not HTML fragments, that closing dates are plausible, and that the filter's
-reject histogram is not `not-open: <everything>` — that reads as rule 3 above
-having been missed. Keep the live volume to a handful of requests.
+**`stats` and `filter` are aggregate across every installed source.** They glob
+one shared store and report no provenance, so with two sources installed you
+cannot read either output as being about the new one. Take the counts before and
+after your first `fetch` and read the difference — that is the only per-source
+view the tooling currently offers. The same applies to the digest: it has no
+Source column, and the only provenance is the namespaced reference from rule 2
+and the `source_feed` field from rule 9.
+
+Read actual output before declaring success:
+
+- Titles are real text, not HTML fragments, and closing dates are plausible.
+- The reject histogram is not `not-open: <everything>` — that is rule 3's second
+  row, an unmapped status.
+- `stats` open-count rose by roughly what `filter` sees. If `stats` says `open: 0`
+  while `filter` passes your notices, that is rule 3's third row — a blank status.
+- At least some notices classify into the low-barrier track, unless you asserted
+  in test 8 that this portal has none.
+
+Keep the live volume to a handful of requests.
 
 Do not proceed until the suite passes offline and one live fetch has been eyeballed.
 
 ---
 
 ## Step 5: Register and document
+
+**These edits are to your fork's copies.** Steps 3 and 4 below modify
+`AGENTS.md`, the README, and `scrape.md` — in your own repository. Read
+CONTRIBUTING.md's "New sources belong in forks first" before considering an
+upstream PR; a fork plus a Discussion post is the expected path and needs no
+permission.
 
 1. Add the package to `pyproject.toml` (`packages.find` include, `project.scripts`).
 2. Reinstall so the console script exists: `pip install -e ".[dev]"`.

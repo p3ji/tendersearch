@@ -19,6 +19,7 @@
       "Bash(python -m canadabuys.cli:*)",
       "Bash(python tools/lint_skills.py)",
       "Bash(python tools/archive_report.py:*)",
+      "Bash(python tools/pass4_review.py:*)",
       "Bash(pytest:*)",
       "Bash(python -m pytest:*)"
     ]

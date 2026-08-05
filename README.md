@@ -108,8 +108,9 @@ and they get read. The command interviews you for the rest and writes `profiles/
 
 **Do not skip the vocabulary-mining step.** Procurement officers do not describe your work
 the way you do — "change management" is advertised as "business transformation advisory
-services." Measured on the live feed: UNSPSC codes appear on 84% of notices, GSIN on 4%, and
-**15% carry no procurement code at all**. Those are reachable only by keyword.
+services." Measured on the live feed across two snapshots (2026-08-03 and 2026-08-04): UNSPSC
+codes appear on 84–85% of notices, GSIN on 4%, and **10–15% carry no procurement code at all**.
+Those are reachable only by keyword. The exact share moves week to week; the shape does not.
 
 ### 4. Declare a team (optional)
 
@@ -223,6 +224,19 @@ varies across the fiscal year).
 
 The archives contain the *asks*, not the *outcomes* — no winner, no awarded value. So they
 cannot tell you whether a high score predicts a win. They calibrate against your judgment and
+Once `/rank` has produced verdicts, Pass 4 checks the scores against your own judgment:
+
+```bash
+python tools/pass4_review.py
+```
+
+It writes `pass4-review.md` into the newest `matches/<date>/`, sampling verdicts for you to
+read and correct — every high scorer in full, plus a sample of low scorers, because a good
+opportunity wrongly scored 8 looks exactly like the fifty that deserved it. This is what turns
+the uncalibrated bands in the rubric into something earned.
+
+The archives contain the *asks*, not the *outcomes* — no winner, no awarded value. So they
+cannot tell you whether a high score predicts a win. They calibrate against your judgment and
 against observable volume, nothing more. The full methodology is Annex B of the
 [design spec](docs/superpowers/specs/2026-08-03-tendersearch-design.md).
 
@@ -236,7 +250,7 @@ tests/             Full suite. Fixtures are real feed data; nothing hits the net
 
 .claude/skills/tender-matcher/     The stage-2 rubric. Markdown, meant to be edited.
 .claude/skills/tender-assistant/   Bid-drafting style and structure for /apply.
-.claude/commands/                  /scrape /rank /profile /team /apply
+.claude/commands/                  /scrape /rank /profile /team /apply /add-source
 .agents/skills/canadabuys-search/  Portable portal skill + feed reference
 
 profiles/<member>/     GIT-IGNORED. profile.yml + evidence/ (resumes, past work)
@@ -318,7 +332,7 @@ If you fork it for another jurisdiction or market, open a
 someone has already written and tested against a real feed is worth far more than a second
 person rediscovering that feed's quirks from scratch — which, on CanadaBuys alone, meant a
 BOM, `*`-prefixed newline-separated multi-values, no contract-value column, notices amended
-in place, and 15% of notices carrying no procurement code at all.
+in place, and 10–15% of notices carrying no procurement code at all.
 
 **Before running a source skill from someone else's fork:** read its code. These CLIs run on
 your machine against your colleagues' data. Confirm the only network calls go to the portal it

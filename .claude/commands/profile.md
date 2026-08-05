@@ -24,10 +24,11 @@ imply it disqualifies anything — it is the normal starting state here.
 ## 3. Mine the vocabulary (Annex B Pass 1)
 
 This is the step that makes stage 1 work, so do not skip it. It is not
-optional polish: measured on the live feed, UNSPSC codes are present on only
-84% of notices, GSIN on just 4%, and **15% of notices carry no procurement
-code at all**. Those notices are reachable only by keyword match — skipping
-this step means the group silently never sees them.
+optional polish: measured on the live feed across two snapshots (2026-08-03 and
+2026-08-04), UNSPSC codes are present on only 84–85% of notices, GSIN on just
+4%, and **10–15% of notices carry no procurement code at all**. Those notices
+are reachable only by keyword match — skipping this step means the group
+silently never sees them.
 
 For each service line, if an archive exists in `archives/`, find notices whose
 codes fall in that line's UNSPSC/GSIN list and extract the recurring terms from

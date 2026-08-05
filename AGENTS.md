@@ -19,7 +19,7 @@ Finds and triages Canadian federal tender opportunities for a small consulting g
 - **Stage 1 errs toward letting notices through.** It is a recall gate: anything it drops is
   never judged and never seen again. Precision failures self-correct at stage 2; recall
   failures are permanent and silent.
-- **Feed gotchas** (BOM, `*`-prefixed multi-values, no value column, 15% of notices carry no
+- **Feed gotchas** (BOM, `*`-prefixed multi-values, no value column, 10–15% of notices carry no
   procurement code) are documented in `.agents/skills/canadabuys-search/url-reference.md`.
   Read it before touching ingestion.
 
@@ -53,6 +53,18 @@ archive into `archives/` (git-ignored), then:
 
     python tools/archive_report.py archives/<file>.csv
 
-Covers Pass 2 (filter reach and volume) and Pass 5 (market map). Passes 1, 3,
-and 4 are LLM-driven — Pass 1 runs inside `/profile`; Passes 3 and 4 are manual
-reads described in the spec.
+Covers Pass 2 (filter reach and volume) and Pass 5 (market map).
+
+Pass 4 (score face validity) builds its review sheet from a `/rank` run, not an
+archive:
+
+    python tools/pass4_review.py                    # newest run in matches/
+    python tools/pass4_review.py matches/2026-08-04 # a specific run
+
+It writes `pass4-review.md` into that run's directory — a stratified sample of
+verdicts for a human to read and correct. Every verdict at or above
+`--detail-above` gets a full write-up; `--sample` low scorers get the same
+treatment, because that is where a wrong call is invisible.
+
+Passes 1 and 3 remain LLM-driven — Pass 1 runs inside `/profile`; Pass 3 is a
+manual read described in the spec.

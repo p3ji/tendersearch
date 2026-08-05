@@ -6,11 +6,35 @@ this project uses [semantic versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **`/add-source`** — a generator for source skills covering other procurement portals. Walks
+  interview, feed investigation, scaffolding, and verification, and enforces an eleven-rule
+  source contract. Most of that contract is the set of mistakes that fail *silently*: colliding
+  reference numbers, naive closing datetimes, an unmapped or blank `status`, region strings no
+  profile uses, and vehicle types that never reach the low-barrier track.
+- **`tools/pass4_review.py`** — Annex B Pass 4. Turns a `/rank` run into a stratified review
+  sheet for checking scores against your own judgment: every high scorer in full, plus a sample
+  of low scorers, because a wrong call there is invisible.
 - MIT licence, contribution and security policies, PR template, and a shared
   `.claude/settings.json` so a fresh clone runs without per-command prompting.
 - CI on every push and pull request: `pytest` across Python 3.11–3.13 on Linux, frontmatter
   linting for commands and skills (`tools/lint_skills.py`), and a job asserting that no real
   profile or team data is tracked.
+- Project logo in the README header.
+
+### Changed
+- **Quick start now works on a machine that is not the author's.** Added the missing `git clone`
+  step, the PowerShell activation line, and a note that the venv must be re-activated in every
+  new terminal session. `config.yml` is a documented step rather than a passing mention, and
+  Customization states which files are yours to edit and which are regenerated output.
+- The CI privacy job now also covers `bids/` and `archives/`, not just `profiles/`, `teams/`,
+  and `outcomes.jsonl`. `bids/` is the one directory that cannot be regenerated.
+- Feed code-coverage figures are quoted as dated ranges (84–85% UNSPSC, 4% GSIN, 10–15% no
+  code). Re-measurement a day apart moved the no-code share 15% → 11%; the constant implied a
+  precision the feed does not have.
+
+### Fixed
+- `canadabuys stats` on an empty store printed four zeros, which reads as a broken tool rather
+  than an empty one. It now names the next step.
 
 ## [0.1.0] — 2026-08-04
 

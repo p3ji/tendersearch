@@ -23,8 +23,12 @@ None of it is encrypted; it is protected only by living on your machine and bein
 **The `.gitignore` allowlist is load-bearing.** `profiles/*` and `teams/*` are ignored except
 `profiles/_example/` and `teams/_example.yml`. Widening those rules — or adding a real profile
 under a path the allowlist happens to permit — publishes personal data the moment you push. It
-cannot be undone by a revert, because it is already public. CI asserts that nothing beyond the
-two example files is tracked; do not weaken that job.
+cannot be undone by a revert, because it is already public.
+
+CI asserts that nothing beyond the two example files is tracked under `profiles/`, `teams/`,
+`bids/`, or `archives/`, or as `outcomes.jsonl`. Do not weaken that job, and note what it does
+*not* cover: it checks the commit under test, not full history, and it cannot catch personal
+data pasted into a file that lives outside those paths.
 
 **Pre-approved permissions.** `.claude/settings.json` allowlists commands that then run without
 prompting. Every entry is a standing grant. Read a diff to that file the way you would read a
