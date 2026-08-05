@@ -43,6 +43,34 @@ output here — federal proposals cost weeks, and most of them you cannot win. T
 ("we meet 6 of 8 mandatories; Alex covers criterion 3; nobody holds the clearance") is the
 product.
 
+### How the pieces fit
+
+Three layers, one-way data flow. Each is independently testable and can fail without
+corrupting the others — the reason a feed change never reaches the matcher, and a matcher
+bug is fixed by re-running rather than by hand-repair.
+
+```
+CanadaBuys  ──▶  Ingestion  ──▶  notices/   (raw, immutable)
+                (Python, no LLM)      │
+                                      ▼
+                            Matching stage 1 (code filter)
+                                      │
+                            Matching stage 2 (LLM judgment)
+                                      │
+                                      ▼
+                                 matches/    (verdicts, regenerable)
+                                      │
+                                      ▼
+                            Application (LLM, on demand)
+                                      │
+                                      ▼
+                                  bids/      (your working documents)
+```
+
+`canadabuys/` owns all network and file I/O and contains no judgment. `matching/` is pure
+functions — no I/O, no LLM. Judgment lives in markdown skills you edit, not in code.
+`notices/` and `matches/` are disposable; only `bids/` holds work you would hate to lose.
+
 ## Status
 
 The matching engine is built and tested. The application assistant is not.
@@ -228,6 +256,41 @@ documentation with fake data.
   measured gotchas (BOM, `*`-prefixed newline-separated multi-values, no contract-value column,
   amendments in place). Read it before touching ingestion.
 
+## Extending it: sources, rubrics, service lines
+
+Three extension points, none of which require changing the core:
+
+1. **Source skills.** `.agents/skills/canadabuys-search/` is a self-contained folder — a CLI,
+   a `SKILL.md`, and a `url-reference.md` recording the feed's measured quirks. A new source
+   (a provincial portal, MERX, a departmental page) is a new folder following the same
+   contract: normalize into the existing notice schema and the matcher, digest, and `/apply`
+   need no changes at all. That isolation is the whole point of the layering.
+2. **The scoring rubric.** [`.claude/skills/tender-matcher/SKILL.md`](.claude/skills/tender-matcher/SKILL.md)
+   is markdown, not code. Weights, bands, and what counts as a deal-breaker are yours to edit,
+   and they are *meant* to be edited once you have read real verdicts.
+3. **Service lines.** Codes and keywords in `profiles/<member>/profile.yml` decide what stage 1
+   can see. No code involved, and it carries more weight than anything else in the repo.
+
+### Community forks and adaptations
+
+This is built for a Canadian federal consulting group, but nothing above the ingestion layer
+is specific to that. The same structure fits provincial and municipal procurement, other
+countries' tender portals, or an entirely different matching domain — swap the source skill
+and the rubric, keep the two-stage architecture.
+
+If you fork it for another jurisdiction or market, open a
+[Discussion](https://github.com/p3ji/tendersearch/discussions) and say so. A source skill
+someone has already written and tested against a real feed is worth far more than a second
+person rediscovering that feed's quirks from scratch — which, on CanadaBuys alone, meant a
+BOM, `*`-prefixed newline-separated multi-values, no contract-value column, notices amended
+in place, and 15% of notices carrying no procurement code at all.
+
+**Before running a source skill from someone else's fork:** read its code. These CLIs run on
+your machine against your colleagues' data. Confirm the only network calls go to the portal it
+claims to search, that it adds no dependencies you did not expect, and that it writes nothing
+outside its own folder. Then run its tests offline — a well-built source skill passes with no
+network access at all.
+
 ## Deliberately not here
 
 - **Automated submission of anything.** The tool never submits a bid or emails a contracting
@@ -255,3 +318,21 @@ prompt building it.
 [CanadaBuys tender notices](https://open.canada.ca/data/en/dataset/6abd20d4-7a1c-4b38-baa2-9525d0bb2fd2)
 on the Open Government Portal. Open tender notices refresh daily between 07:00 and 08:30
 (UTC-0500); new notices refresh every two hours.
+
+## Acknowledgements
+
+Structure and workflow modelled on
+[ai-job-search](https://github.com/MadsLorentzen/ai-job-search) by Mads Lorentzen — portable
+search skills, markdown-as-methodology, files on disk as the datastore. The
+[Canadian fork](https://github.com/p3ji/ai-job-search-ca) is where the pattern was first
+adapted for federal-sector use.
+
+Built with [Claude Code](https://claude.com/claude-code).
+
+## Support
+
+If this saved you a weekend you would have spent on an unwinnable bid, you can
+[buy me a coffee](https://ko-fi.com/pejia).
+
+There is **no affiliated cryptocurrency, token, or paid sponsorship programme** attached to
+this project. Anything claiming otherwise is not mine and should be treated as a scam.
