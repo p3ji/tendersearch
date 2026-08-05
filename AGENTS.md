@@ -5,6 +5,8 @@ Finds and triages Canadian federal tender opportunities for a small consulting g
 ## Layout
 
 - `canadabuys/` — feed ingestion. All network and file I/O. **No judgment logic.**
+  Other sources are sibling packages following the same contract — see
+  `/add-source` and `.claude/commands/add-source.md`.
 - `matching/` — stage-1 filter. Pure functions, no I/O, no LLM.
 - `.claude/skills/tender-matcher/` — stage-2 rubric (markdown, human-edited).
 - `.claude/skills/tender-assistant/` — `/apply` drafting style and structure (markdown, human-edited).
@@ -32,6 +34,7 @@ Finds and triages Canadian federal tender opportunities for a small consulting g
     /rank       # filter, judge, write matches/<date>/digest.md
     /profile <member>   # build or update a member profile
     /team <name>        # declare a team
+    /add-source [url]   # build a source skill for another portal or jurisdiction
 
 Scheduling: see `docs/scheduling.md`.
 

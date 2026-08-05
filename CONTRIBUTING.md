@@ -38,7 +38,13 @@ archive-analysis override. Assume there are more.
 ## New sources belong in forks first
 
 A source skill for a provincial portal, MERX, or another country's tender system is the main
-thing people will want to add. Build it in your fork:
+thing people will want to add. **Run `/add-source` in Claude Code** — it walks the steps below,
+investigates the feed before writing any parser, and enforces the source contract (namespaced
+references, timezone-aware closing dates, a status that normalizes to `open`, absent data
+passing rather than rejecting). Those are the failures that are silent rather than loud, which
+is why the command exists instead of a checklist.
+
+Whether you use it or build by hand, the result must be:
 
 - One self-contained folder under `.agents/skills/<source>-search/` — a CLI, a `SKILL.md`, and a
   `url-reference.md` recording the feed's measured quirks (the CanadaBuys one documents a BOM,

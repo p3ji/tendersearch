@@ -201,6 +201,7 @@ which is the second-largest reject bucket on a typical day.
 | `/profile <member>` | Build or update a member profile from evidence plus interview. |
 | `/team <name>` | Declare or edit a team. |
 | `/apply <notice-id>` | Assemble a bid draft for a notice that already has a verdict from `/rank`. Run per-notice, not part of the daily schedule. |
+| `/add-source [url]` | Build a source skill for another procurement portal — a province, a municipality, another country. Interviews you, investigates the feed, scaffolds the package, and verifies it before registering. `--list` shows what is installed. |
 
 If more than one profile or team has a verdict for the same notice, `/apply` needs
 to be told which one to draft for — pass `--profile <id>` or `--team <id>` (one or
@@ -334,6 +335,13 @@ Three extension points, none of which require changing the core:
    (a provincial portal, MERX, a departmental page) is a new folder following the same
    contract: normalize into the existing notice schema and the matcher, digest, and `/apply`
    need no changes at all. That isolation is the whole point of the layering.
+
+   **`/add-source` builds one with you.** It interviews you about the portal, fetches real
+   responses before writing any parser, scaffolds the package against the source contract,
+   and refuses to register anything until the offline suite passes and one live fetch has
+   been eyeballed. The contract it enforces — namespaced references, timezone-aware closing
+   dates, a status that normalizes to `open`, absent data passing rather than rejecting — is
+   the set of things that are silent bugs rather than loud ones if you get them wrong.
 2. **The scoring rubric.** [`.claude/skills/tender-matcher/SKILL.md`](.claude/skills/tender-matcher/SKILL.md)
    is markdown, not code. Weights, bands, and what counts as a deal-breaker are yours to edit,
    and they are *meant* to be edited once you have read real verdicts.
