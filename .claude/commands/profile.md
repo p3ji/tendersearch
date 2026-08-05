@@ -5,6 +5,28 @@ argument-hint: <member-id>
 
 Build `profiles/$1/profile.yml`. Use `profiles/_example/profile.yml` as the schema.
 
+## 0. Make the evidence folder
+
+`profiles/$1/evidence/` does not exist on a fresh clone. Create it before doing
+anything else — do not ask the user to create it, and do not fail because it is
+missing:
+
+```bash
+mkdir -p profiles/$1/evidence
+```
+
+Then list what is in it. If it is empty, say so plainly and give the user the
+choice, rather than proceeding as though there were nothing to read:
+
+> I've created `profiles/$1/evidence/`. Copy in anything that describes this
+> person's work — resumes, CVs, capability statements, past proposals, project
+> summaries. PDF, Word, or plain text all work. Tell me when they're in and I'll
+> read them, or say "skip" and I'll build the profile from the interview alone.
+
+Wait for the answer. A profile built from the interview alone is valid but
+weaker: the documents are where depth, years, and past performance come from,
+and re-running `/profile $1` later to add them is more work than pausing now.
+
 ## 1. Ingest evidence
 
 Read everything in `profiles/$1/evidence/` — resumes, capability statements,

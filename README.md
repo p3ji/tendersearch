@@ -59,6 +59,9 @@ product.
 Steps 1 and 2 are shell commands. Steps 3 to 5 are Claude Code slash commands —
 open Claude Code in this folder and type them at its prompt, not in a terminal.
 
+> **Not comfortable at a command line?** [SETUP.md](SETUP.md) walks the same path one step at a
+> time, says which window each command goes in, and lists what to do when something errors.
+
 ### 1. Install
 
 ```bash
@@ -103,8 +106,11 @@ In Claude Code:
 /profile alex
 ```
 
-Drop resumes, capability statements, or past proposals into `profiles/alex/evidence/` first
-and they get read. The command interviews you for the rest and writes `profiles/alex/profile.yml`.
+The command creates `profiles/alex/evidence/` and pauses so you can copy in resumes,
+capability statements, or past proposals — PDF, Word, or text. It reads those, interviews you
+for what they do not cover, and writes `profiles/alex/profile.yml`. You can skip the documents
+and answer from scratch, but the interview alone cannot tell it how many years someone has
+been doing something.
 
 **Do not skip the vocabulary-mining step.** Procurement officers do not describe your work
 the way you do — "change management" is advertised as "business transformation advisory
