@@ -144,3 +144,23 @@ def test_active_profiles_naming_unknown_member_is_an_error(env):
                     encoding="utf-8")
     rc = run_filter(env)
     assert rc == 1
+
+
+def test_stats_on_an_empty_store_names_the_next_step(tmp_path, capsys):
+    # All-zero counts read as a broken tool to a first-time user. stats is
+    # often the first command they run, so it must distinguish "nothing
+    # fetched yet" from "nothing matched".
+    rc = main(["--notices", str(tmp_path / "notices"), "stats"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "no notices stored yet" in out
+    assert "canadabuys fetch" in out
+    assert "stored: 0" not in out
+
+
+def test_stats_reports_counts_when_the_store_is_populated(env, capsys):
+    rc = main(["--notices", env["notices"], "stats"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "stored: 1" in out
+    assert "no notices stored yet" not in out

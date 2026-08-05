@@ -42,6 +42,14 @@ def cmd_fetch(args) -> int:
 
 def cmd_stats(args) -> int:
     notices = list(NoticeStore(pathlib.Path(args.notices)).all())
+    if not notices:
+        # A store of zeros reads as a broken tool rather than an empty one.
+        # This is the first command a new user runs, so name the next step.
+        print(
+            f"no notices stored yet in {args.notices}/ -- run `canadabuys fetch` "
+            f"(or /scrape in Claude Code) first"
+        )
+        return 0
     print(f"stored: {len(notices)}")
     print(f"open: {sum(1 for n in notices if n.is_open())}")
     print(f"needing rematch: {sum(1 for n in notices if n.needs_rematch)}")

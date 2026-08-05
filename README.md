@@ -158,7 +158,19 @@ services." Measured on the live feed: UNSPSC codes appear on 84% of notices, GSI
 A team is a list of member IDs. Capabilities are unioned from the member profiles at read
 time and never copied into the team file, so editing one profile propagates everywhere.
 
-### 5. Rank
+### 5. Set your thresholds
+
+Open `config.yml` in any text editor. Four settings, all safe to change at any time —
+nothing is recomputed from them until the next `/rank`.
+
+| Setting | Default | What it does |
+|---|---|---|
+| `min_turnaround_days` | `5` | Stage 1 drops anything closing sooner than this. Raise it if you keep seeing bids you had no time to write; lower it if the digest looks thin. On a typical day this is the second-largest reject bucket. |
+| `notify_score_threshold` | `70` | Score at or above which the digest lists a notice first, and the daily schedule notifies you. Set it from what real verdicts look like after a week, not from a round number. |
+| `active_profiles` | `[]` | Empty means every profile in `profiles/`. Name member IDs here to rank for a subset — e.g. `["alex", "sam"]`. Naming an unknown ID is a hard error, not a silent skip. |
+| `active_teams` | `[]` | Empty means every team. Used by `/rank` at stage 2 only; the stage-1 filter ignores it. |
+
+### 6. Rank
 
 ```
 /rank
@@ -290,15 +302,24 @@ it up. Copy it somewhere you trust.
 
 ## Customization
 
-- **Scoring** — [`.claude/skills/tender-matcher/SKILL.md`](.claude/skills/tender-matcher/SKILL.md).
-  Edit the rubric and the bands. Tune them from an archive read first, then from real outcomes.
-- **Thresholds** — `config.yml`: `min_turnaround_days` (how little notice you can still bid on),
-  `notify_score_threshold`, `active_profiles`.
-- **Keywords and codes** — `profiles/<member>/profile.yml`. This is the highest-leverage file
-  in the repo: it decides what stage 1 can see at all.
-- **Feed handling** — `.agents/skills/canadabuys-search/url-reference.md` documents the feed's
-  measured gotchas (BOM, `*`-prefixed newline-separated multi-values, no contract-value column,
-  amendments in place). Read it before touching ingestion.
+Everything the tool does is steered by four files you edit by hand. Nothing else is
+meant to be hand-edited — `notices/`, `matches/`, and `bids/scaffold.json` are written
+by the tool, and changes to them are overwritten on the next run.
+
+| File | Edit it to change | How often |
+|---|---|---|
+| `profiles/<member>/profile.yml` | Which notices stage 1 can see at all — codes, keywords, regions, clearance. **The highest-leverage file in the repo.** | When someone's capabilities change, or when the digest keeps missing work you should have seen |
+| `config.yml` | Thresholds and which profiles/teams are active. See [step 5](#5-set-your-thresholds) for each setting. | Early on, weekly; then rarely |
+| [`.claude/skills/tender-matcher/SKILL.md`](.claude/skills/tender-matcher/SKILL.md) | How stage 2 scores — the rubric, the weights, the bands, what counts as a deal-breaker. Plain markdown, no code. | Once you have read real verdicts and disagree with them |
+| [`.claude/skills/tender-assistant/SKILL.md`](.claude/skills/tender-assistant/SKILL.md) | The voice and section structure `/apply` drafts in. | Once you have seen a draft you would not have sent |
+
+Prefer `/profile <member>` over editing `profile.yml` directly — it mines keywords from
+real notice text, which is the part people get wrong by hand.
+
+One file you should read before editing and generally should not touch:
+`.agents/skills/canadabuys-search/url-reference.md` documents the feed's measured gotchas
+(BOM, `*`-prefixed newline-separated multi-values, no contract-value column, amendments in
+place). It is a record of what the feed actually does, not a setting.
 
 ## Extending it: sources, rubrics, service lines
 
