@@ -279,7 +279,7 @@ countries' tender portals, or an entirely different matching domain — swap the
 and the rubric, keep the two-stage architecture.
 
 If you fork it for another jurisdiction or market, open a
-[Discussion](https://github.com/p3ji/tendersearch/discussions) and say so. A source skill
+[fork index](https://github.com/p3ji/tendersearch/discussions/1) and say so. A source skill
 someone has already written and tested against a real feed is worth far more than a second
 person rediscovering that feed's quirks from scratch — which, on CanadaBuys alone, meant a
 BOM, `*`-prefixed newline-separated multi-values, no contract-value column, notices amended

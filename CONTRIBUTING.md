@@ -48,7 +48,7 @@ thing people will want to add. Build it in your fork:
   no changes at all. If you cannot, say why in the PR — that is a real finding about the schema.
 - Tests against checked-in fixtures, passing with no network access.
 
-Then open a [Discussion](https://github.com/p3ji/tendersearch/discussions) so others can find
+Then post it to the [fork index](https://github.com/p3ji/tendersearch/discussions/1) so others can find
 it. A tested source skill is worth far more than someone rediscovering a feed's quirks from
 scratch. Upstreaming is possible for sources with broad reach, but a fork plus a Discussion post
 is the expected path and needs no permission.
